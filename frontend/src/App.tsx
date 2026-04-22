@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CallList } from "./components/CallList";
 import { DropZone } from "./components/DropZone";
 import { Ladder } from "./components/Ladder";
@@ -19,6 +19,7 @@ export function App() {
   const [activeIdx, setActiveIdx] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [windowDragging, setWindowDragging] = useState(false);
 
   // One-time: if URL says ?preload=1, ask the server for the CLI-injected session.
   useEffect(() => {
@@ -35,6 +36,46 @@ export function App() {
       }
     })();
   }, []);
+
+  // Keep a ref to handleFile so the window drop listener calls the fresh
+  // closure without re-binding every render.
+  const handleFileRef = useRef<(f: File) => void>(() => {});
+
+  // Full-window drag-and-drop once at least one tab is open.
+  // (The empty state already has its own DropZone.)
+  useEffect(() => {
+    if (tabs.length === 0) return;
+
+    const hasFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types ?? []).includes("Files");
+
+    const onDragOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setWindowDragging(true);
+    };
+    const onDragLeave = (e: DragEvent) => {
+      // dragleave fires at every child boundary — only act when the cursor
+      // actually leaves the window (relatedTarget is null in that case).
+      if (e.relatedTarget === null) setWindowDragging(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setWindowDragging(false);
+      const file = e.dataTransfer?.files?.[0];
+      if (file) handleFileRef.current(file);
+    };
+
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, [tabs.length]);
 
   const active = tabs[activeIdx] ?? null;
   const activeCall =
@@ -61,6 +102,8 @@ export function App() {
     }
   }
 
+  handleFileRef.current = handleFile;
+
   function closeTab(idx: number) {
     setTabs((ts) => {
       const next = ts.filter((_, i) => i !== idx);
@@ -74,7 +117,12 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app${windowDragging ? " window-drag-active" : ""}`}>
+      {windowDragging && (
+        <div className="window-drag-overlay" aria-hidden="true">
+          <div className="window-drag-hint">Drop to add another pcap</div>
+        </div>
+      )}
       <div className="topbar">
         <span className="title">pcap-viz</span>
         <div className="tabs">

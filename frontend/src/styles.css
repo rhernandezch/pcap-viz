@@ -175,6 +175,27 @@ button:hover {
   margin: 10px;
 }
 
+/* Window-level drop overlay (shown while a file is dragged over the app) */
+.window-drag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  background: rgba(14, 17, 23, 0.6);
+  border: 3px dashed var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.window-drag-hint {
+  font-size: 20px;
+  color: var(--text);
+  background: var(--accent-soft);
+  padding: 16px 24px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+}
+
 /* Full-window drop state when no tabs yet */
 .empty-state {
   display: flex;
