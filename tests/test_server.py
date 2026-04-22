@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from pcap_viz.parser import parse_pcap
@@ -50,3 +51,20 @@ def test_empty_preload() -> None:
     client = TestClient(app)
     assert client.get("/api/preload").json() == {"session_id": None}
     assert client.get("/api/health").json() == {"status": "ok"}
+
+
+def test_oversize_upload_rejected_with_413(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Drop the cap to 4 KB and send 8 KB so the test stays fast and low-memory.
+    monkeypatch.setattr("pcap_viz.server.MAX_UPLOAD_BYTES", 4 * 1024)
+    monkeypatch.setattr("pcap_viz.server.UPLOAD_CHUNK_BYTES", 1024)
+
+    app = create_app()
+    client = TestClient(app)
+
+    payload = b"\x00" * (8 * 1024)
+    resp = client.post(
+        "/api/parse",
+        files={"file": ("big.pcap", payload, "application/vnd.tcpdump.pcap")},
+    )
+    assert resp.status_code == 413
+    assert "too large" in resp.json()["detail"]
