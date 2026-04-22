@@ -6,7 +6,6 @@ Run: python tests/make_fixture.py /tmp/basic_call.pcap
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 from scapy.all import IP, UDP, Ether, Raw, wrpcap
 
