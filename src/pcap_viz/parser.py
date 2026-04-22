@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import socket
 from pathlib import Path
-from typing import Iterator
 
 import dpkt
 
@@ -60,7 +59,13 @@ def parse_pcap(path: str | Path) -> ParseResult:
             src_addr = _fmt_endpoint(src, sport)
             dst_addr = _fmt_endpoint(dst, dport)
 
-            for raw in _split_sip_messages(payload):
+            raw_messages, truncated = _split_sip_messages(payload)
+            if truncated:
+                warnings.append(
+                    f"packet #{packet_count}: truncated SIP "
+                    "(Content-Length exceeds captured payload)"
+                )
+            for raw in raw_messages:
                 try:
                     msg = _parse_one_message(
                         raw,
@@ -142,21 +147,26 @@ def _looks_like_sip(payload: bytes) -> bool:
     return token in SIP_METHODS
 
 
-def _split_sip_messages(payload: bytes) -> Iterator[bytes]:
-    """Yield each SIP message from a payload that may contain several back-to-back."""
+def _split_sip_messages(payload: bytes) -> tuple[list[bytes], bool]:
+    """Return (complete messages, truncated) for a payload.
+
+    `truncated` is True when a message's Content-Length extends past the
+    captured payload — the incomplete tail is discarded rather than parsed.
+    """
+    messages: list[bytes] = []
     remaining = payload
     while remaining:
         header_end = remaining.find(b"\r\n\r\n")
         if header_end < 0:
-            return
+            return messages, False
         header_block = remaining[:header_end]
         content_length = _extract_content_length(header_block)
         message_end = header_end + 4 + content_length
         if message_end > len(remaining):
-            yield remaining
-            return
-        yield remaining[:message_end]
+            return messages, True
+        messages.append(remaining[:message_end])
         remaining = remaining[message_end:].lstrip(b"\r\n")
+    return messages, False
 
 
 def _extract_content_length(header_block: bytes) -> int:

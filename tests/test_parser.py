@@ -54,6 +54,17 @@ def test_two_overlapping_calls_group_by_call_id(two_calls_pcap: Path) -> None:
         assert methods_and_status == [("INVITE", None), (None, 200)]
 
 
+def test_truncated_body_emits_warning_and_no_message(truncated_body_pcap: Path) -> None:
+    result = parse_pcap(truncated_body_pcap)
+
+    # The incomplete message is NOT surfaced as a parsed SIP message.
+    assert result.sip_message_count == 0
+    assert result.calls == []
+
+    # It IS surfaced as a warning, so truncated captures are visible to the user.
+    assert any("truncated SIP" in w for w in result.warnings)
+
+
 def test_malformed_message_becomes_warning(malformed_pcap: Path) -> None:
     result = parse_pcap(malformed_pcap)
 
