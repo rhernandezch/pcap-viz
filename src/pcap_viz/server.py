@@ -15,6 +15,7 @@ from .parser import parse_pcap
 
 MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 MAX_SESSIONS = 32
+UPLOAD_CHUNK_BYTES = 1024 * 1024  # 1 MB
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -62,15 +63,20 @@ def create_app(preload: ParseResult | None = None) -> FastAPI:
 
     @app.post("/api/parse", response_model=ParseResponse)
     async def parse(file: UploadFile = File(...)) -> ParseResponse:
-        data = await file.read()
-        if len(data) > MAX_UPLOAD_BYTES:
-            raise HTTPException(
-                status_code=413,
-                detail=f"pcap too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
-            )
         suffix = ".pcapng" if (file.filename or "").endswith(".pcapng") else ".pcap"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
-            tmp.write(data)
+            total = 0
+            while True:
+                chunk = await file.read(UPLOAD_CHUNK_BYTES)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"pcap too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
+                    )
+                tmp.write(chunk)
             tmp.flush()
             try:
                 result = parse_pcap(tmp.name)
