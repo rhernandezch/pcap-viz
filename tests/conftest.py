@@ -176,6 +176,32 @@ def two_calls_pcap(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def truncated_body_pcap(tmp_path: Path) -> Path:
+    """One SIP message whose Content-Length exceeds the captured body."""
+    a = "10.0.0.1"
+    b = "10.0.0.2"
+    call_id = "call-trunc-001@example.com"
+    alice = '"Alice" <sip:alice@example.com>;tag=a1'
+    bob = '"Bob" <sip:bob@example.com>'
+
+    # Content-Length claims 500 bytes of body, but only "short body" (10) is present.
+    truncated = (
+        f"INVITE sip:bob@example.com SIP/2.0\n"
+        f"Via: SIP/2.0/UDP 10.0.0.1:5060;branch=z9hG4bK-trunc\n"
+        f"From: {alice}\n"
+        f"To: {bob}\n"
+        f"Call-ID: {call_id}\n"
+        f"CSeq: 1 INVITE\n"
+        f"Content-Type: application/sdp\n"
+        f"Content-Length: 500\n"
+        f"\nshort body"
+    )
+
+    packets = [_sip_udp_packet(300.0, a, 5060, b, 5060, truncated)]
+    return _write_pcap(tmp_path / "truncated_body.pcap", packets)
+
+
+@pytest.fixture
 def malformed_pcap(tmp_path: Path) -> Path:
     """One valid SIP message plus one that's truncated (no end-of-headers)."""
     a = "10.0.0.1"
