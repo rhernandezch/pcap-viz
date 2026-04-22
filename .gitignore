@@ -36,3 +36,6 @@ src/pcap_viz/static/
 
 # Runtime
 *.log
+
+# Playwright MCP scratch
+.playwright-mcp/
