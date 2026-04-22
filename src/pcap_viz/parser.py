@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import socket
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import dpkt
@@ -33,11 +34,26 @@ DLT_LINUX_SLL = 113
 PCAPNG_MAGIC = b"\n\r\r\n"
 
 
+@dataclass
+class _TcpFlow:
+    """Per-direction TCP reassembly state for a SIP-over-TCP byte stream."""
+
+    src: str
+    dst: str
+    buffer: bytes = b""
+    last_ts: float = 0.0
+    # True once we've confirmed the first bytes of the stream look like SIP,
+    # so we keep appending without re-checking every segment.
+    confirmed: bool = False
+    warnings: list[str] = field(default_factory=list)
+
+
 def parse_pcap(path: str | Path) -> ParseResult:
     """Parse a pcap/pcapng file and return structured SIP ladder data."""
     path = Path(path)
     messages: list[SipMessage] = []
     warnings: list[str] = []
+    tcp_flows: dict[tuple[str, str], _TcpFlow] = {}
     packet_count = 0
     index = 0
 
@@ -53,33 +69,53 @@ def parse_pcap(path: str | Path) -> ParseResult:
             if extracted is None:
                 continue
             payload, transport, src, sport, dst, dport = extracted
-            if not payload or not _looks_like_sip(payload):
+            if not payload:
                 continue
 
             src_addr = _fmt_endpoint(src, sport)
             dst_addr = _fmt_endpoint(dst, dport)
 
-            raw_messages, truncated = _split_sip_messages(payload)
-            if truncated:
-                warnings.append(
-                    f"packet #{packet_count}: truncated SIP "
-                    "(Content-Length exceeds captured payload)"
-                )
-            for raw in raw_messages:
-                try:
-                    msg = _parse_one_message(
+            if transport == "UDP":
+                if not _looks_like_sip(payload):
+                    continue
+                raw_messages, truncated = _split_sip_messages(payload)
+                if truncated:
+                    warnings.append(
+                        f"packet #{packet_count}: truncated SIP "
+                        "(Content-Length exceeds captured payload)"
+                    )
+                for raw in raw_messages:
+                    index = _emit_message(
                         raw,
                         index=index,
                         timestamp=ts,
                         src=src_addr,
                         dst=dst_addr,
-                        transport=transport,
+                        transport="UDP",
+                        messages=messages,
+                        warnings=warnings,
+                        context=f"packet #{packet_count}",
                     )
-                except Exception as exc:
-                    warnings.append(f"packet #{packet_count}: malformed SIP: {exc}")
-                    continue
-                messages.append(msg)
-                index += 1
+            else:  # TCP
+                index = _feed_tcp_segment(
+                    flows=tcp_flows,
+                    src_addr=src_addr,
+                    dst_addr=dst_addr,
+                    payload=payload,
+                    ts=ts,
+                    index=index,
+                    messages=messages,
+                    warnings=warnings,
+                )
+
+    # Any TCP flow that still has buffered bytes at end-of-capture means a
+    # partial SIP message we never got to finish — surface it as a warning.
+    for flow in tcp_flows.values():
+        if flow.buffer:
+            warnings.append(
+                f"TCP flow {flow.src} -> {flow.dst}: truncated SIP "
+                "(incomplete data at end of capture)"
+            )
 
     return ParseResult(
         filename=path.name,
@@ -88,6 +124,76 @@ def parse_pcap(path: str | Path) -> ParseResult:
         calls=_group_by_call_id(messages),
         warnings=warnings,
     )
+
+
+def _emit_message(
+    raw: bytes,
+    *,
+    index: int,
+    timestamp: float,
+    src: str,
+    dst: str,
+    transport: Transport,
+    messages: list[SipMessage],
+    warnings: list[str],
+    context: str,
+) -> int:
+    """Parse one raw SIP message and append it to `messages`; returns new index."""
+    try:
+        msg = _parse_one_message(
+            raw,
+            index=index,
+            timestamp=timestamp,
+            src=src,
+            dst=dst,
+            transport=transport,
+        )
+    except Exception as exc:
+        warnings.append(f"{context}: malformed SIP: {exc}")
+        return index
+    messages.append(msg)
+    return index + 1
+
+
+def _feed_tcp_segment(
+    *,
+    flows: dict[tuple[str, str], _TcpFlow],
+    src_addr: str,
+    dst_addr: str,
+    payload: bytes,
+    ts: float,
+    index: int,
+    messages: list[SipMessage],
+    warnings: list[str],
+) -> int:
+    """Accumulate a TCP segment into its flow and drain any complete messages."""
+    key = (src_addr, dst_addr)
+    flow = flows.get(key)
+    if flow is None:
+        # Only start tracking a flow once its first bytes look like SIP;
+        # otherwise we'd buffer every non-SIP TCP conversation in the capture.
+        if not _looks_like_sip(payload):
+            return index
+        flow = _TcpFlow(src=src_addr, dst=dst_addr, confirmed=True)
+        flows[key] = flow
+
+    flow.buffer += payload
+    flow.last_ts = ts
+
+    raw_messages, flow.buffer = _drain_sip_buffer(flow.buffer)
+    for raw in raw_messages:
+        index = _emit_message(
+            raw,
+            index=index,
+            timestamp=flow.last_ts,
+            src=src_addr,
+            dst=dst_addr,
+            transport="TCP",
+            messages=messages,
+            warnings=warnings,
+            context=f"TCP flow {src_addr} -> {dst_addr}",
+        )
+    return index
 
 
 def _fmt_endpoint(addr: str, port: int) -> str:
@@ -147,26 +253,41 @@ def _looks_like_sip(payload: bytes) -> bool:
     return token in SIP_METHODS
 
 
-def _split_sip_messages(payload: bytes) -> tuple[list[bytes], bool]:
-    """Return (complete messages, truncated) for a payload.
+def _drain_sip_buffer(buf: bytes) -> tuple[list[bytes], bytes]:
+    """Extract complete SIP messages from `buf`; return leftover bytes.
 
-    `truncated` is True when a message's Content-Length extends past the
-    captured payload — the incomplete tail is discarded rather than parsed.
+    Leftover is whatever remains after the last complete message:
+      - empty if the buffer ended on a message boundary
+      - incomplete headers (no CRLF-CRLF yet), or a complete header whose body
+        is shorter than Content-Length, otherwise
+
+    Callers decide whether leftover means "wait for more" (TCP reassembly) or
+    "truncated" (UDP datagram, where the buffer is self-contained).
     """
     messages: list[bytes] = []
-    remaining = payload
-    while remaining:
-        header_end = remaining.find(b"\r\n\r\n")
+    while buf:
+        header_end = buf.find(b"\r\n\r\n")
         if header_end < 0:
-            return messages, False
-        header_block = remaining[:header_end]
-        content_length = _extract_content_length(header_block)
+            return messages, buf
+        content_length = _extract_content_length(buf[:header_end])
         message_end = header_end + 4 + content_length
-        if message_end > len(remaining):
-            return messages, True
-        messages.append(remaining[:message_end])
-        remaining = remaining[message_end:].lstrip(b"\r\n")
-    return messages, False
+        if message_end > len(buf):
+            return messages, buf
+        messages.append(buf[:message_end])
+        buf = buf[message_end:].lstrip(b"\r\n")
+    return messages, b""
+
+
+def _split_sip_messages(payload: bytes) -> tuple[list[bytes], bool]:
+    """Split a self-contained UDP datagram into (messages, truncated).
+
+    Truncation only applies when a message's Content-Length ran past the
+    datagram — leftover without even a full header block is just trailing
+    junk and is silently dropped to match pre-TCP behavior.
+    """
+    messages, leftover = _drain_sip_buffer(payload)
+    truncated = b"\r\n\r\n" in leftover
+    return messages, truncated
 
 
 def _extract_content_length(header_block: bytes) -> int:

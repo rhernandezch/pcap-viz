@@ -76,3 +76,52 @@ def test_malformed_message_becomes_warning(malformed_pcap: Path) -> None:
     # fail the "end of headers" check (silently discarded in _split_sip_messages).
     # Either way, no crash and the valid message is present.
     assert result.packet_count == 2
+
+
+def test_tcp_reassembles_invite_split_across_segments(
+    tcp_split_invite_pcap: Path,
+) -> None:
+    """An INVITE whose body spans two TCP segments must reassemble into one message."""
+    result = parse_pcap(tcp_split_invite_pcap)
+
+    assert result.warnings == []
+    assert result.sip_message_count == 2
+    assert len(result.calls) == 1
+
+    call = result.calls[0]
+    assert call.call_id == "call-tcp-split-001@example.com"
+    assert [(m.method, m.status_code) for m in call.messages] == [
+        ("INVITE", None),
+        (None, 200),
+    ]
+    invite = call.messages[0]
+    assert invite.transport == "TCP"
+    # The full SDP must be present, proving both segments contributed to the body.
+    assert invite.body is not None
+    assert "m=audio 49170" in invite.body
+
+
+def test_tcp_pipelined_segment_yields_both_messages(
+    tcp_pipelined_pcap: Path,
+) -> None:
+    """A single TCP segment with two back-to-back SIP messages emits both."""
+    result = parse_pcap(tcp_pipelined_pcap)
+
+    assert result.warnings == []
+    assert result.sip_message_count == 2
+    methods = [m.method for m in result.calls[0].messages]
+    assert methods == ["OPTIONS", "INFO"]
+    assert all(m.transport == "TCP" for m in result.calls[0].messages)
+
+
+def test_tcp_truncated_at_eof_warns_and_drops_partial(
+    tcp_truncated_at_eof_pcap: Path,
+) -> None:
+    """A TCP stream ending mid-body surfaces a warning; no partial SipMessage."""
+    result = parse_pcap(tcp_truncated_at_eof_pcap)
+
+    assert result.sip_message_count == 0
+    assert result.calls == []
+    assert any(
+        "TCP flow" in w and "truncated SIP" in w for w in result.warnings
+    ), result.warnings
