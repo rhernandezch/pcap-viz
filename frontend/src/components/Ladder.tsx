@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Call, SipMessage } from "../types";
 import { arrowClass, labelOf } from "../util";
 
@@ -16,6 +16,8 @@ interface Props {
 }
 
 export function Ladder({ call, selectedIndex, onSelect }: Props) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+
   const layout = useMemo(() => {
     if (!call) return null;
     const laneX: Record<string, number> = {};
@@ -30,6 +32,22 @@ export function Ladder({ call, selectedIndex, onSelect }: Props) {
     return { laneX, width, height };
   }, [call]);
 
+  // Keep the selected row visible when it moves via keyboard.
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap || !call || selectedIndex === null) return;
+    const pos = call.messages.findIndex((m) => m.index === selectedIndex);
+    if (pos < 0) return;
+    const y = TOP_MARGIN + pos * ROW_HEIGHT;
+    const visibleTop = wrap.scrollTop;
+    const visibleBottom = visibleTop + wrap.clientHeight;
+    if (y < visibleTop + ROW_HEIGHT) {
+      wrap.scrollTop = Math.max(0, y - ROW_HEIGHT);
+    } else if (y + ROW_HEIGHT * 2 > visibleBottom) {
+      wrap.scrollTop = y + ROW_HEIGHT * 2 - wrap.clientHeight;
+    }
+  }, [call, selectedIndex]);
+
   if (!call) {
     return <div className="ladder-empty">Select a call on the left to view its ladder.</div>;
   }
@@ -38,7 +56,7 @@ export function Ladder({ call, selectedIndex, onSelect }: Props) {
   const t0 = call.started_at;
 
   return (
-    <div className="ladder-wrap">
+    <div className="ladder-wrap" ref={wrapRef}>
       <div className="ladder">
         <svg width={width} height={height} role="img" aria-label="SIP ladder">
           {/* Lane lines + endpoint headers */}
