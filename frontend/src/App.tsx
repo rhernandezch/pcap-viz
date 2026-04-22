@@ -77,6 +77,58 @@ export function App() {
     };
   }, [tabs.length]);
 
+  // Keyboard navigation: ↑/↓ step through messages in the active call,
+  // ←/→ switch between calls. Ignored while typing in a form field.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const activeTab = tabs[activeIdx];
+      if (!activeTab) return;
+      const calls = activeTab.result.calls;
+      if (calls.length === 0) return;
+
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        const call = calls.find((c) => c.call_id === activeTab.selectedCallId);
+        if (!call || call.messages.length === 0) return;
+        const pos = call.messages.findIndex(
+          (m) => m.index === activeTab.selectedMessageIndex,
+        );
+        const delta = e.key === "ArrowDown" ? 1 : -1;
+        const next =
+          pos < 0
+            ? e.key === "ArrowDown"
+              ? 0
+              : call.messages.length - 1
+            : Math.max(0, Math.min(call.messages.length - 1, pos + delta));
+        updateActive({ selectedMessageIndex: call.messages[next].index });
+        e.preventDefault();
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const pos = calls.findIndex((c) => c.call_id === activeTab.selectedCallId);
+        const delta = e.key === "ArrowRight" ? 1 : -1;
+        const next =
+          pos < 0 ? 0 : Math.max(0, Math.min(calls.length - 1, pos + delta));
+        updateActive({
+          selectedCallId: calls[next].call_id,
+          selectedMessageIndex: null,
+        });
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // updateActive closes over activeIdx, so re-bind when tabs/activeIdx change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs, activeIdx]);
+
   const active = tabs[activeIdx] ?? null;
   const activeCall =
     active?.result.calls.find((c) => c.call_id === active.selectedCallId) ?? null;
