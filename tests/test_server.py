@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from pcap_viz.parser import parse_pcap
-from pcap_viz.server import create_app
+from pcap_viz.server import _env_int, create_app
 
 
 def test_parse_and_fetch_session(basic_call_pcap: Path) -> None:
@@ -74,6 +74,50 @@ def test_parse_failure_returns_generic_400(caplog: pytest.LogCaptureFixture) -> 
 
     # But the traceback IS recorded server-side for debugging.
     assert any("failed to parse pcap upload" in rec.message for rec in caplog.records)
+
+
+class TestEnvInt:
+    def test_valid_int_overrides_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PCAP_VIZ_TEST_X", "42")
+        assert _env_int("PCAP_VIZ_TEST_X", 1) == 42
+
+    def test_missing_env_falls_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("PCAP_VIZ_TEST_X", raising=False)
+        assert _env_int("PCAP_VIZ_TEST_X", 17) == 17
+
+    def test_non_numeric_falls_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PCAP_VIZ_TEST_X", "not-a-number")
+        assert _env_int("PCAP_VIZ_TEST_X", 17) == 17
+
+    def test_value_clamped_to_minimum(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PCAP_VIZ_TEST_X", "0")
+        assert _env_int("PCAP_VIZ_TEST_X", 10, minimum=1) == 1
+
+
+def test_session_store_honors_max_sessions_override(
+    monkeypatch: pytest.MonkeyPatch, basic_call_pcap: Path
+) -> None:
+    """Lowering MAX_SESSIONS evicts older sessions LRU-style."""
+    monkeypatch.setattr("pcap_viz.server.MAX_SESSIONS", 2)
+
+    app = create_app()
+    client = TestClient(app)
+
+    ids: list[str] = []
+    for _ in range(3):
+        with basic_call_pcap.open("rb") as fh:
+            resp = client.post(
+                "/api/parse",
+                files={"file": ("c.pcap", fh, "application/vnd.tcpdump.pcap")},
+            )
+        assert resp.status_code == 200
+        ids.append(resp.json()["session_id"])
+
+    # Oldest evicted once the third session pushed us past the cap of 2.
+    assert client.get(f"/api/session/{ids[0]}").status_code == 404
+    # The two most recent are still reachable.
+    assert client.get(f"/api/session/{ids[1]}").status_code == 200
+    assert client.get(f"/api/session/{ids[2]}").status_code == 200
 
 
 def test_oversize_upload_rejected_with_413(monkeypatch: pytest.MonkeyPatch) -> None:

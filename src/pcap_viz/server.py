@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import tempfile
 import uuid
 from collections import OrderedDict
@@ -16,8 +17,24 @@ from .parser import parse_pcap
 
 logger = logging.getLogger(__name__)
 
-MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
-MAX_SESSIONS = 32
+
+def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
+    """Read `name` from os.environ as a positive int; fall back to default."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return max(minimum, value)
+
+
+# Defaults are overridable via env so deployments can tune limits without a rebuild:
+#   PCAP_VIZ_MAX_UPLOAD_MB  — /api/parse size cap (MB; default 100)
+#   PCAP_VIZ_MAX_SESSIONS   — in-memory session store capacity (default 32)
+MAX_UPLOAD_BYTES = _env_int("PCAP_VIZ_MAX_UPLOAD_MB", 100) * 1024 * 1024
+MAX_SESSIONS = _env_int("PCAP_VIZ_MAX_SESSIONS", 32)
 UPLOAD_CHUNK_BYTES = 1024 * 1024  # 1 MB
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -52,7 +69,9 @@ class ParseResponse(BaseModel):
 
 def create_app(preload: ParseResult | None = None) -> FastAPI:
     app = FastAPI(title="pcap-viz", version="0.1.0")
-    store = SessionStore()
+    # Read MAX_SESSIONS at call time (not capture it as a default arg) so tests
+    # and callers can override the module-level constant before create_app().
+    store = SessionStore(max_items=MAX_SESSIONS)
     preload_id: str | None = store.put(preload) if preload is not None else None
 
     @app.get("/api/health")
