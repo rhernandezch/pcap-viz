@@ -53,6 +53,29 @@ def test_empty_preload() -> None:
     assert client.get("/api/health").json() == {"status": "ok"}
 
 
+def test_parse_failure_returns_generic_400(caplog: pytest.LogCaptureFixture) -> None:
+    """A broken pcap returns 400 with a generic detail; the exception is logged."""
+    app = create_app()
+    client = TestClient(app)
+
+    # Not a valid pcap file — dpkt.Reader will raise on the magic.
+    with caplog.at_level("ERROR", logger="pcap_viz.server"):
+        resp = client.post(
+            "/api/parse",
+            files={"file": ("broken.pcap", b"definitely not a pcap", "application/octet-stream")},
+        )
+
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail == "failed to parse pcap"
+    # Internals like the dpkt exception class must NOT leak into the response.
+    assert "Traceback" not in detail
+    assert "dpkt" not in detail
+
+    # But the traceback IS recorded server-side for debugging.
+    assert any("failed to parse pcap upload" in rec.message for rec in caplog.records)
+
+
 def test_oversize_upload_rejected_with_413(monkeypatch: pytest.MonkeyPatch) -> None:
     # Drop the cap to 4 KB and send 8 KB so the test stays fast and low-memory.
     monkeypatch.setattr("pcap_viz.server.MAX_UPLOAD_BYTES", 4 * 1024)

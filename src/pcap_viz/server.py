@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import tempfile
 import uuid
 from collections import OrderedDict
@@ -12,6 +13,8 @@ from pydantic import BaseModel
 
 from .models import ParseResult
 from .parser import parse_pcap
+
+logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 MAX_SESSIONS = 32
@@ -80,8 +83,13 @@ def create_app(preload: ParseResult | None = None) -> FastAPI:
             tmp.flush()
             try:
                 result = parse_pcap(tmp.name)
-            except Exception as exc:
-                raise HTTPException(status_code=400, detail=f"failed to parse pcap: {exc}")
+            except Exception:
+                # Log the traceback server-side; the client gets a generic
+                # message so we don't leak stack traces or file paths.
+                logger.exception(
+                    "failed to parse pcap upload (filename=%r)", file.filename
+                )
+                raise HTTPException(status_code=400, detail="failed to parse pcap")
         result.filename = file.filename or result.filename
         session_id = store.put(result)
         return ParseResponse(session_id=session_id, result=result)
