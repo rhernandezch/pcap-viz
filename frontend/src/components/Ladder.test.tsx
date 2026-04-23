@@ -89,4 +89,54 @@ describe("<Ladder />", () => {
     (rows[1] as SVGGElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(onSelect).toHaveBeenCalledWith(1);
   });
+
+  it("gives self-loop rows extra vertical space so the U-curve doesn't overlap the next row", () => {
+    const a = "10.0.0.1:5060";
+    const b = "10.0.0.2:5060";
+    const call: Call = {
+      call_id: "c1",
+      endpoints: [a, b],
+      started_at: 0,
+      ended_at: 0.5,
+      from_uri: "",
+      to_uri: "",
+      message_count: 3,
+      messages: [
+        // Regular arrow
+        msg({ index: 0, timestamp: 0, method: "INVITE", src: a, dst: b }),
+        // Self-loop (src === dst)
+        msg({ index: 1, timestamp: 0.1, method: "OPTIONS", src: a, dst: a }),
+        // Regular arrow after — its row must start below the self-loop's U.
+        msg({
+          index: 2,
+          timestamp: 0.5,
+          status_code: 200,
+          status_phrase: "OK",
+          src: b,
+          dst: a,
+        }),
+      ],
+    };
+
+    const { container } = render(
+      <Ladder call={call} selectedIndex={null} onSelect={() => {}} />,
+    );
+
+    const bgs = Array.from(container.querySelectorAll("rect.row-bg"));
+    expect(bgs).toHaveLength(3);
+
+    const y0 = Number(bgs[0].getAttribute("y"));
+    const h0 = Number(bgs[0].getAttribute("height"));
+    const y1 = Number(bgs[1].getAttribute("y"));
+    const h1 = Number(bgs[1].getAttribute("height"));
+    const y2 = Number(bgs[2].getAttribute("y"));
+
+    // Rows stack tightly with no gaps or overlaps.
+    expect(y1).toBe(y0 + h0);
+    expect(y2).toBe(y1 + h1);
+
+    // The self-loop row is taller than a regular row, so there's room for the
+    // U-curve (which drops ~h1-32 px) without spilling into row 2.
+    expect(h1).toBeGreaterThan(h0);
+  });
 });
