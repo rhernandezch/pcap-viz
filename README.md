@@ -51,6 +51,17 @@ uvicorn pcap_viz.server:app --reload --port 8765
 cd frontend && npm run dev
 ```
 
+## Configuration
+
+The server reads these environment variables at startup (defaults in parens):
+
+| Variable                  | Purpose                                   | Default |
+| ------------------------- | ----------------------------------------- | ------- |
+| `PCAP_VIZ_MAX_UPLOAD_MB`  | `/api/parse` size cap, in megabytes       | `100`   |
+| `PCAP_VIZ_MAX_SESSIONS`   | Bounded LRU capacity for parsed sessions  | `32`    |
+
+Example: `PCAP_VIZ_MAX_UPLOAD_MB=500 pcap-viz`.
+
 ## Tests
 
 ```bash
