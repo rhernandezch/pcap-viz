@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { SipMessage } from "../types";
+import type { Sdp, SdpMedia, SipMessage } from "../types";
 
 interface Props {
   message: SipMessage | null;
@@ -47,8 +47,66 @@ export function MessageDetail({ message }: Props) {
           <FragmentRow key={k} name={k} value={v} />
         ))}
       </dl>
+      {message.sdp && <SdpSummary sdp={message.sdp} />}
       {message.body && <pre className="body">{message.body}</pre>}
     </div>
+  );
+}
+
+function SdpSummary({ sdp }: { sdp: Sdp }) {
+  if (sdp.media.length === 0) return null;
+  return (
+    <section className="sdp" aria-label="Parsed SDP">
+      <div className="sdp-header">SDP</div>
+      <ul className="sdp-media-list">
+        {sdp.media.map((m, i) => (
+          <SdpMediaItem key={i} media={m} fallbackAddr={sdp.connection_addr} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SdpMediaItem({
+  media,
+  fallbackAddr,
+}: {
+  media: SdpMedia;
+  fallbackAddr: string | null;
+}) {
+  const addr = media.connection_addr ?? fallbackAddr;
+  return (
+    <li className="sdp-media">
+      <div className="sdp-media-summary">
+        <span className="sdp-kind">{media.kind}</span>
+        {addr && (
+          <>
+            {" · "}
+            <span className="sdp-endpoint">
+              {addr}:{media.port}
+            </span>
+          </>
+        )}
+        {!addr && (
+          <>
+            {" · :"}
+            <span className="sdp-endpoint">{media.port}</span>
+          </>
+        )}
+        {" · "}
+        <span className="sdp-proto">{media.proto}</span>
+      </div>
+      {media.formats.length > 0 && (
+        <ul className="sdp-formats">
+          {media.formats.map((pt) => (
+            <li key={pt}>
+              <span className="sdp-pt">{pt}</span>{" "}
+              <span className="sdp-codec">{media.rtpmaps[String(pt)] ?? "—"}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
 
