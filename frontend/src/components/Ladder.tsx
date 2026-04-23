@@ -6,6 +6,9 @@ const LEFT_MARGIN = 90;
 const TOP_MARGIN = 60;
 const LANE_SPACING = 240;
 const ROW_HEIGHT = 56;
+// Self-loop rows need extra vertical space for the U-curve (28px drop)
+// plus clearance before the next row's hit area.
+const SELF_LOOP_ROW_HEIGHT = 80;
 const LANE_MIN_WIDTH = 160;
 const BOTTOM_PAD = 24;
 
@@ -13,6 +16,15 @@ interface Props {
   call: Call | null;
   selectedIndex: number | null;
   onSelect: (msgIndex: number) => void;
+}
+
+interface Row {
+  y: number;
+  height: number;
+}
+
+function rowHeightFor(m: SipMessage): number {
+  return m.src === m.dst ? SELF_LOOP_ROW_HEIGHT : ROW_HEIGHT;
 }
 
 export function Ladder({ call, selectedIndex, onSelect }: Props) {
@@ -24,35 +36,44 @@ export function Ladder({ call, selectedIndex, onSelect }: Props) {
     call.endpoints.forEach((ep, i) => {
       laneX[ep] = LEFT_MARGIN + i * LANE_SPACING;
     });
+
+    const rows: Row[] = [];
+    let cursor = TOP_MARGIN;
+    for (const m of call.messages) {
+      const h = rowHeightFor(m);
+      rows.push({ y: cursor, height: h });
+      cursor += h;
+    }
+
     const width = Math.max(
       LEFT_MARGIN + (call.endpoints.length - 1) * LANE_SPACING + LANE_MIN_WIDTH,
       LEFT_MARGIN + LANE_SPACING,
     );
-    const height = TOP_MARGIN + call.messages.length * ROW_HEIGHT + BOTTOM_PAD;
-    return { laneX, width, height };
+    const height = cursor + BOTTOM_PAD;
+    return { laneX, width, height, rows };
   }, [call]);
 
   // Keep the selected row visible when it moves via keyboard.
   useEffect(() => {
     const wrap = wrapRef.current;
-    if (!wrap || !call || selectedIndex === null) return;
+    if (!wrap || !call || !layout || selectedIndex === null) return;
     const pos = call.messages.findIndex((m) => m.index === selectedIndex);
     if (pos < 0) return;
-    const y = TOP_MARGIN + pos * ROW_HEIGHT;
+    const row = layout.rows[pos];
     const visibleTop = wrap.scrollTop;
     const visibleBottom = visibleTop + wrap.clientHeight;
-    if (y < visibleTop + ROW_HEIGHT) {
-      wrap.scrollTop = Math.max(0, y - ROW_HEIGHT);
-    } else if (y + ROW_HEIGHT * 2 > visibleBottom) {
-      wrap.scrollTop = y + ROW_HEIGHT * 2 - wrap.clientHeight;
+    if (row.y < visibleTop + row.height) {
+      wrap.scrollTop = Math.max(0, row.y - row.height);
+    } else if (row.y + row.height * 2 > visibleBottom) {
+      wrap.scrollTop = row.y + row.height * 2 - wrap.clientHeight;
     }
-  }, [call, selectedIndex]);
+  }, [call, layout, selectedIndex]);
 
   if (!call) {
     return <div className="ladder-empty">Select a call on the left to view its ladder.</div>;
   }
 
-  const { laneX, width, height } = layout!;
+  const { laneX, width, height, rows } = layout!;
   const t0 = call.started_at;
 
   return (
@@ -82,7 +103,7 @@ export function Ladder({ call, selectedIndex, onSelect }: Props) {
 
           {/* Arrow rows */}
           {call.messages.map((m, i) => {
-            const y = TOP_MARGIN + i * ROW_HEIGHT;
+            const row = rows[i];
             const x1 = laneX[m.src];
             const x2 = laneX[m.dst];
             if (x1 === undefined || x2 === undefined) return null;
@@ -93,7 +114,8 @@ export function Ladder({ call, selectedIndex, onSelect }: Props) {
                 message={m}
                 x1={x1}
                 x2={x2}
-                y={y}
+                y={row.y}
+                rowHeight={row.height}
                 width={width}
                 t0={t0}
                 selected={isSelected}
@@ -112,25 +134,27 @@ interface ArrowProps {
   x1: number;
   x2: number;
   y: number;
+  rowHeight: number;
   width: number;
   t0: number;
   selected: boolean;
   onClick: () => void;
 }
 
-function Arrow({ message, x1, x2, y, width, t0, selected, onClick }: ArrowProps) {
+function Arrow({ message, x1, x2, y, rowHeight, width, t0, selected, onClick }: ArrowProps) {
   const rightward = x2 > x1;
   const arrowY = y + 22;
   const labelY = y + 12;
   const arrowHeadSize = 8;
 
-  // Self-loop (src === dst) — render a small U
+  // Self-loop (src === dst) — render a U that fits within this row only.
   const isSelfLoop = x1 === x2;
+  const loopDrop = isSelfLoop ? rowHeight - 32 : 0;
   const pathD = isSelfLoop
-    ? `M ${x1} ${arrowY} c 40 0, 40 28, 0 28`
+    ? `M ${x1} ${arrowY} c 40 0, 40 ${loopDrop}, 0 ${loopDrop}`
     : `M ${x1} ${arrowY} L ${x2} ${arrowY}`;
   const tipX = isSelfLoop ? x1 : x2;
-  const tipY = isSelfLoop ? arrowY + 28 : arrowY;
+  const tipY = isSelfLoop ? arrowY + loopDrop : arrowY;
   const tipDir = isSelfLoop ? -1 : rightward ? 1 : -1;
 
   const elapsed = message.timestamp - t0;
@@ -141,8 +165,8 @@ function Arrow({ message, x1, x2, y, width, t0, selected, onClick }: ArrowProps)
 
   return (
     <g className={`row${selected ? " selected" : ""}`} onClick={onClick}>
-      <rect className="row-bg" x={0} y={y} width={width} height={ROW_HEIGHT} />
-      <rect className="hit" x={0} y={y} width={width} height={ROW_HEIGHT} />
+      <rect className="row-bg" x={0} y={y} width={width} height={rowHeight} />
+      <rect className="hit" x={0} y={y} width={width} height={rowHeight} />
       <text className="time-label" x={LEFT_MARGIN - 12} y={arrowY + 4} textAnchor="end">
         {timeText}
       </text>
