@@ -7,6 +7,7 @@ from pathlib import Path
 import dpkt
 
 from .models import Call, ParseResult, SipMessage, Transport
+from .sdp import parse_sdp
 
 SIP_METHODS = frozenset(
     {
@@ -362,6 +363,13 @@ def _parse_one_message(
             headers[name] = value
         current_name = name
 
+    content_type = _header_ci(headers, "Content-Type", "c")
+    sdp = (
+        parse_sdp(body)
+        if body and content_type.lower().split(";", 1)[0].strip() == "application/sdp"
+        else None
+    )
+
     return SipMessage(
         index=index,
         timestamp=timestamp,
@@ -379,6 +387,7 @@ def _parse_one_message(
         to_uri=_header_ci(headers, "To", "t"),
         headers=headers,
         body=body,
+        sdp=sdp,
     )
 
 

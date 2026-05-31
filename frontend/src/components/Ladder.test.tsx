@@ -20,6 +20,7 @@ function msg(overrides: Partial<SipMessage> & { index: number }): SipMessage {
     to_uri: "",
     headers: {},
     body: null,
+    sdp: null,
     ...overrides,
   };
 }

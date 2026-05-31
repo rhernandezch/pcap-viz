@@ -1,5 +1,21 @@
 export type Transport = "UDP" | "TCP";
 
+export interface SdpMedia {
+  kind: string;
+  port: number;
+  proto: string;
+  formats: number[];
+  rtpmaps: Record<string, string>;
+  connection_addr: string | null;
+}
+
+export interface Sdp {
+  origin_addr: string | null;
+  session_name: string | null;
+  connection_addr: string | null;
+  media: SdpMedia[];
+}
+
 export interface SipMessage {
   index: number;
   timestamp: number;
@@ -17,6 +33,7 @@ export interface SipMessage {
   to_uri: string;
   headers: Record<string, string>;
   body: string | null;
+  sdp: Sdp | null;
 }
 
 export interface Call {

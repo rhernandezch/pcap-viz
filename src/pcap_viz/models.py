@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from .sdp import Sdp
+
 Transport = Literal["UDP", "TCP"]
 
 
@@ -28,6 +30,7 @@ class SipMessage(BaseModel):
     to_uri: str = ""
     headers: dict[str, str] = Field(default_factory=dict)
     body: str | None = None
+    sdp: Sdp | None = None
 
 
 class Call(BaseModel):
