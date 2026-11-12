@@ -4,6 +4,15 @@ from pathlib import Path
 
 from pcap_viz.models import SipMessage
 from pcap_viz.parser import _emit_message, parse_pcap
+from tests.make_fixture import build_showcase
+
+
+def test_showcase_fixture_parses(tmp_path: Path) -> None:
+    result = parse_pcap(build_showcase(tmp_path / "showcase.pcap"))
+
+    assert len(result.calls) == 32
+    assert any("truncated SIP" in w for w in result.warnings)
+    assert any(len(c.endpoints) == 3 for c in result.calls)
 
 
 def test_basic_call_parses_in_order(basic_call_pcap: Path) -> None:
