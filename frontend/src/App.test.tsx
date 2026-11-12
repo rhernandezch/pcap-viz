@@ -153,4 +153,27 @@ describe("<App />", () => {
     expect(await screen.findByText("dropped.pcap")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/parse", expect.objectContaining({ method: "POST" }));
   });
+
+  it("keeps the active capture selected when a tab to its left is closed", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+    for (const name of ["b.pcap", "c.pcap"]) {
+      act(() => {
+        window.dispatchEvent(fileDragEvent("drop", new File(["x"], name)));
+      });
+      await screen.findByRole("tab", { name });
+    }
+    fireEvent.click(screen.getByRole("tab", { name: "b.pcap" }));
+
+    fireEvent.keyDown(screen.getByRole("tab", { name: "a.pcap" }), { key: "Delete" });
+
+    expect(screen.getByRole("tab", { name: "b.pcap" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("focuses Open pcap after the last tab is closed", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+
+    fireEvent.keyDown(screen.getByRole("tab", { name: "a.pcap" }), { key: "Delete" });
+
+    expect(screen.getByRole("button", { name: "Open pcap" })).toHaveFocus();
+  });
 });

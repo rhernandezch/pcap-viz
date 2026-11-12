@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { CallList } from "./components/CallList";
 import { DropZone } from "./components/DropZone";
 import { Ladder } from "./components/Ladder";
 import { MessageDetail } from "./components/MessageDetail";
+import { TabBar } from "./components/TabBar";
 import { fetchPreloadSessionId, fetchSession, uploadPcap } from "./api";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { useWindowFileDrop } from "./hooks/useWindowFileDrop";
@@ -21,6 +22,7 @@ export function App() {
   const [activeIdx, setActiveIdx] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
 
   // One-time: if URL says ?preload=1, ask the server for the CLI-injected session.
   useEffect(() => {
@@ -75,11 +77,9 @@ export function App() {
   }
 
   function closeTab(idx: number) {
-    setTabs((ts) => {
-      const next = ts.filter((_, i) => i !== idx);
-      if (activeIdx >= next.length) setActiveIdx(Math.max(0, next.length - 1));
-      return next;
-    });
+    const remaining = tabs.length - 1;
+    setTabs((ts) => ts.filter((_, i) => i !== idx));
+    setActiveIdx((a) => Math.max(0, Math.min(idx < a ? a - 1 : a, remaining - 1)));
   }
 
   function updateActive(patch: Partial<Tab>) {
@@ -95,28 +95,14 @@ export function App() {
       )}
       <div className="topbar">
         <span className="title">pcap-viz</span>
-        <div className="tabs">
-          {tabs.map((t, i) => (
-            <span
-              key={t.sessionId}
-              className={`tab${i === activeIdx ? " active" : ""}`}
-              onClick={() => setActiveIdx(i)}
-              title={t.result.filename}
-            >
-              <span>{t.result.filename}</span>
-              <span
-                className="close"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeTab(i);
-                }}
-              >
-                ×
-              </span>
-            </span>
-          ))}
-        </div>
-        {tabs.length > 0 && <LabelledFilePicker onFile={handleFile} loading={loading} />}
+        <TabBar
+          tabs={tabs.map((t) => ({ id: t.sessionId, label: t.result.filename }))}
+          activeIdx={activeIdx}
+          onSelect={setActiveIdx}
+          onClose={closeTab}
+          fallbackFocusRef={openButtonRef}
+        />
+        <OpenPcapButton ref={openButtonRef} onFile={handleFile} loading={loading} />
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -170,26 +156,31 @@ function makeTab(sessionId: string, result: ParseResult): Tab {
   };
 }
 
-function LabelledFilePicker({
-  onFile,
-  loading,
-}: {
-  onFile: (f: File) => void;
-  loading: boolean;
-}) {
-  return (
-    <label style={{ fontSize: 12, color: "var(--text-dim)", cursor: "pointer" }}>
-      {loading ? "parsing…" : "+ add pcap"}
-      <input
-        type="file"
-        accept=".pcap,.pcapng"
-        style={{ display: "none" }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onFile(f);
-          e.target.value = "";
-        }}
-      />
-    </label>
-  );
-}
+const OpenPcapButton = forwardRef<HTMLButtonElement, { onFile: (f: File) => void; loading: boolean }>(
+  function OpenPcapButton({ onFile, loading }, ref) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    return (
+      <>
+        <button
+          ref={ref}
+          type="button"
+          className="open-pcap"
+          onClick={() => inputRef.current?.click()}
+        >
+          {loading ? "Parsing…" : "Open pcap"}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pcap,.pcapng"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onFile(f);
+            e.target.value = "";
+          }}
+        />
+      </>
+    );
+  },
+);
