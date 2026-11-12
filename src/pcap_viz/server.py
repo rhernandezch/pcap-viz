@@ -6,6 +6,7 @@ import tempfile
 import uuid
 from collections import OrderedDict
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -84,7 +85,7 @@ def create_app(preload: ParseResult | None = None) -> FastAPI:
         return {"session_id": preload_id}
 
     @app.post("/api/parse", response_model=ParseResponse)
-    async def parse(file: UploadFile = File(...)) -> ParseResponse:
+    async def parse(file: Annotated[UploadFile, File()]) -> ParseResponse:
         suffix = ".pcapng" if (file.filename or "").endswith(".pcapng") else ".pcap"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
             total = 0
