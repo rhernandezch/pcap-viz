@@ -109,6 +109,10 @@ button:hover {
 .tab .tab-label:hover {
   background: transparent;
 }
+.tab .tab-label:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 .tab .close {
   font-size: 11px;
   color: var(--text-dim);

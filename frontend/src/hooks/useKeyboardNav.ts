@@ -9,14 +9,9 @@ interface Options {
   onSelectMessage: (messageIndex: number) => void;
 }
 
-function handlesOwnKeys(target: EventTarget | null): boolean {
+function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  return (
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.isContentEditable ||
-    target.getAttribute("role") === "tab"
-  );
+  return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
 }
 
 export function useKeyboardNav(options: Options): void {
@@ -27,7 +22,7 @@ export function useKeyboardNav(options: Options): void {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (handlesOwnKeys(e.target)) return;
+      if (isTyping(e.target)) return;
       const { calls, selectedCallId, selectedMessageIndex, onSelectCall, onSelectMessage } =
         optionsRef.current;
       if (calls.length === 0) return;

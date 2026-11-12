@@ -192,6 +192,17 @@ describe("<App />", () => {
     expect(screen.getByText("INVITE sip:bob@example.com SIP/2.0")).toBeInTheDocument();
   });
 
+  it("ArrowDown on a clicked tab still steps through messages", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+    const tab = screen.getByRole("tab", { name: "a.pcap" });
+    fireEvent.click(tab);
+    tab.focus();
+
+    fireEvent.keyDown(tab, { key: "ArrowDown" });
+
+    expect(screen.getByText("INVITE sip:bob@example.com SIP/2.0")).toBeInTheDocument();
+  });
+
   it("focuses Open pcap after the last tab is closed", async () => {
     await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
 
