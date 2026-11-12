@@ -333,6 +333,35 @@ button:hover {
   fill: none;
 }
 
+.ladder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.legend-swatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--arrow);
+}
+
 .ladder .arrow-label {
   fill: var(--text);
   font-size: 11.5px;
