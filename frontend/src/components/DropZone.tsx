@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { PCAP_FILE_TYPES } from "../api";
 
 interface Props {
   onFile: (file: File) => void;
@@ -30,7 +31,7 @@ export function DropZone({ onFile, inline }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pcap,.pcapng,application/vnd.tcpdump.pcap"
+        accept={PCAP_FILE_TYPES}
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) onFile(file);

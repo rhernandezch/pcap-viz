@@ -4,7 +4,7 @@ import { DropZone } from "./components/DropZone";
 import { Ladder } from "./components/Ladder";
 import { MessageDetail } from "./components/MessageDetail";
 import { TabBar } from "./components/TabBar";
-import { fetchPreloadSessionId, fetchSession, uploadPcap } from "./api";
+import { fetchPreloadSessionId, fetchSession, PCAP_FILE_TYPES, uploadPcap } from "./api";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { useWindowFileDrop } from "./hooks/useWindowFileDrop";
 import type { ParseResult, SipMessage } from "./types";
@@ -172,7 +172,7 @@ const OpenPcapButton = forwardRef<HTMLButtonElement, { onFile: (f: File) => void
         <input
           ref={inputRef}
           type="file"
-          accept=".pcap,.pcapng"
+          accept={PCAP_FILE_TYPES}
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
