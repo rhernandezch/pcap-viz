@@ -114,6 +114,12 @@ describe("<App />", () => {
     expect(await screen.findByText("INVITE sip:bob@example.com SIP/2.0")).toBeInTheDocument();
   });
 
+  it("shows the theme toggle in the topbar", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+
+    expect(screen.getByRole("button", { name: /^Theme: / })).toBeInTheDocument();
+  });
+
   it("ArrowRight moves to the next call", async () => {
     await renderPreloaded(
       result("a.pcap", [

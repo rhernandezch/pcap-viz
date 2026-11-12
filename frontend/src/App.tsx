@@ -4,6 +4,7 @@ import { DropZone } from "./components/DropZone";
 import { Ladder } from "./components/Ladder";
 import { MessageDetail } from "./components/MessageDetail";
 import { TabBar } from "./components/TabBar";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { fetchPreloadSessionId, fetchSession, PCAP_FILE_TYPES, uploadPcap } from "./api";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { useWindowFileDrop } from "./hooks/useWindowFileDrop";
@@ -103,6 +104,7 @@ export function App() {
           fallbackFocusRef={openButtonRef}
         />
         <OpenPcapButton ref={openButtonRef} onFile={handleFile} loading={loading} />
+        <ThemeToggle />
       </div>
 
       {error && <div className="error-banner">{error}</div>}
