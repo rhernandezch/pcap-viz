@@ -1,20 +1,12 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { applyThemePreference, nextThemePreference, useThemePreference } from "./theme";
+import { applyThemePreference, useThemePreference } from "./theme";
 
 const STORAGE_KEY = "pcap-viz:theme";
 
 afterEach(() => {
   localStorage.clear();
   delete document.documentElement.dataset.theme;
-});
-
-describe("nextThemePreference", () => {
-  it("cycles system → light → dark → system", () => {
-    expect(nextThemePreference("system")).toBe("light");
-    expect(nextThemePreference("light")).toBe("dark");
-    expect(nextThemePreference("dark")).toBe("system");
-  });
 });
 
 describe("applyThemePreference", () => {
@@ -41,6 +33,19 @@ describe("useThemePreference", () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify("purple"));
     const { result } = renderHook(() => useThemePreference());
     expect(result.current[0]).toBe("system");
+  });
+
+  it("cycles system → light → dark → system", () => {
+    const { result } = renderHook(() => useThemePreference());
+    const seen = [result.current[0]];
+
+    for (let i = 0; i < 3; i++) {
+      act(() => result.current[1]());
+      seen.push(result.current[0]);
+    }
+
+    expect(seen).toEqual(["system", "light", "dark", "system"]);
+    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
   });
 
   it("cycling persists the preference and applies it to <html>", () => {

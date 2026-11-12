@@ -1,5 +1,4 @@
-/* Every color is a light-dark() token. Without data-theme the OS setting picks
-   the side; theme.ts sets data-theme only for an explicit Light or Dark choice. */
+/* Every color is a light-dark() token. */
 :root {
   color-scheme: light dark;
   --bg: light-dark(#ffffff, #0e1117);

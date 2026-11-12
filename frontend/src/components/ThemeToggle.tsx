@@ -6,7 +6,7 @@ export function ThemeToggle() {
   const [preference, cycle] = useThemePreference();
   const label = LABELS[preference];
   return (
-    <button type="button" className="theme-toggle" aria-label={`Theme: ${label}`} onClick={cycle}>
+    <button type="button" aria-label={`Theme: ${label}`} onClick={cycle}>
       {label}
     </button>
   );

@@ -9,7 +9,7 @@ const CYCLE: ThemePreference[] = ["system", "light", "dark"];
 const isThemePreference = (v: unknown): v is ThemePreference =>
   CYCLE.includes(v as ThemePreference);
 
-export function nextThemePreference(p: ThemePreference): ThemePreference {
+function nextThemePreference(p: ThemePreference): ThemePreference {
   return CYCLE[(CYCLE.indexOf(p) + 1) % CYCLE.length];
 }
 
