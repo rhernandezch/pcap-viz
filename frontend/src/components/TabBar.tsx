@@ -1,9 +1,8 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, type KeyboardEvent, type RefObject } from "react";
 
 interface TabItem {
   id: string;
   label: string;
-  title?: string;
 }
 
 interface Props {
@@ -14,24 +13,49 @@ interface Props {
   fallbackFocusRef?: RefObject<HTMLElement>;
 }
 
+const CLOSE_KEYS = ["Delete", "Backspace"];
+
 export function TabBar({ tabs, activeIdx, onSelect, onClose, fallbackFocusRef }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
   const focusAfterClose = useRef(false);
 
+  const tabButtons = () =>
+    Array.from(listRef.current?.querySelectorAll<HTMLElement>('[role="tab"]') ?? []);
+
   useEffect(() => {
     if (!focusAfterClose.current) return;
     focusAfterClose.current = false;
-    const activeTab = listRef.current?.querySelectorAll<HTMLElement>('[role="tab"]')[activeIdx];
-    (activeTab ?? fallbackFocusRef?.current)?.focus();
+    (tabButtons()[activeIdx] ?? fallbackFocusRef?.current)?.focus();
   }, [tabs, activeIdx, fallbackFocusRef]);
 
   function close(idx: number) {
-    focusAfterClose.current = true;
+    // Only keyboard closes (focus already in the tablist) and closing the last
+    // tab move focus; a mouse close of a background tab leaves it alone.
+    focusAfterClose.current =
+      tabs.length === 1 || !!listRef.current?.contains(document.activeElement);
     onClose(idx);
   }
 
+  function onTabKeyDown(e: KeyboardEvent, idx: number) {
+    if (CLOSE_KEYS.includes(e.key)) {
+      close(idx);
+      return;
+    }
+    const last = tabs.length - 1;
+    const next =
+      e.key === "ArrowRight" ? (idx === last ? 0 : idx + 1)
+      : e.key === "ArrowLeft" ? (idx === 0 ? last : idx - 1)
+      : e.key === "Home" ? 0
+      : e.key === "End" ? last
+      : null;
+    if (next === null) return;
+    e.preventDefault();
+    onSelect(next);
+    tabButtons()[next]?.focus();
+  }
+
   // The tablist may own only tabs, so the mouse close control is decorative and
-  // keyboard users close the focused tab with Delete.
+  // keyboard users close the focused tab with Delete or Backspace.
   return (
     <div className="tabs" role="tablist" aria-label="Open captures" ref={listRef}>
       {tabs.map((t, i) => (
@@ -41,12 +65,11 @@ export function TabBar({ tabs, activeIdx, onSelect, onClose, fallbackFocusRef }:
             role="tab"
             className="tab-label"
             aria-selected={i === activeIdx}
-            aria-keyshortcuts="Delete"
-            title={t.title ?? t.label}
+            aria-keyshortcuts={CLOSE_KEYS.join(" ")}
+            tabIndex={i === activeIdx ? 0 : -1}
+            title={t.label}
             onClick={() => onSelect(i)}
-            onKeyDown={(e) => {
-              if (e.key === "Delete") close(i);
-            }}
+            onKeyDown={(e) => onTabKeyDown(e, i)}
           >
             {t.label}
           </button>

@@ -169,6 +169,29 @@ describe("<App />", () => {
     expect(screen.getByRole("tab", { name: "b.pcap" })).toHaveAttribute("aria-selected", "true");
   });
 
+  it("ArrowRight on a focused tab switches captures instead of calls", async () => {
+    await renderPreloaded(
+      result("a.pcap", [
+        call("c1", "INVITE sip:bob@example.com SIP/2.0"),
+        call("c2", "INVITE sip:carol@example.com SIP/2.0"),
+      ]),
+    );
+    act(() => {
+      window.dispatchEvent(fileDragEvent("drop", new File(["x"], "b.pcap")));
+    });
+    await screen.findByRole("tab", { name: "b.pcap" });
+    const first = screen.getByRole("tab", { name: "a.pcap" });
+    fireEvent.click(first);
+    first.focus();
+
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+
+    expect(screen.getByRole("tab", { name: "b.pcap" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("tab", { name: "a.pcap" }));
+    fireEvent.keyDown(document.body, { key: "ArrowDown" });
+    expect(screen.getByText("INVITE sip:bob@example.com SIP/2.0")).toBeInTheDocument();
+  });
+
   it("focuses Open pcap after the last tab is closed", async () => {
     await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
 
