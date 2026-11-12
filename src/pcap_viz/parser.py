@@ -148,7 +148,7 @@ def _emit_message(
             dst=dst,
             transport=transport,
         )
-    except Exception as exc:
+    except ValueError as exc:
         warnings.append(f"{context}: malformed SIP: {exc}")
         return index
     messages.append(msg)

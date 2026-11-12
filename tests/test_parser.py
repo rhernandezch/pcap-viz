@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pcap_viz.parser import parse_pcap
+from pcap_viz.models import SipMessage
+from pcap_viz.parser import _emit_message, parse_pcap
 
 
 def test_basic_call_parses_in_order(basic_call_pcap: Path) -> None:
@@ -76,6 +77,27 @@ def test_malformed_message_becomes_warning(malformed_pcap: Path) -> None:
     # fail the "end of headers" check (silently discarded in _split_sip_messages).
     # Either way, no crash and the valid message is present.
     assert result.packet_count == 2
+
+
+def test_unparseable_message_becomes_warning_without_advancing_index() -> None:
+    messages: list[SipMessage] = []
+    warnings: list[str] = []
+
+    next_index = _emit_message(
+        b"INVITE sip:bob@example.com SIP/2.0\r\nVia: SIP/2.0/UDP 10.0.0.1:5060",
+        index=3,
+        timestamp=0.0,
+        src="10.0.0.1:5060",
+        dst="10.0.0.2:5060",
+        transport="UDP",
+        messages=messages,
+        warnings=warnings,
+        context="packet #4",
+    )
+
+    assert next_index == 3
+    assert messages == []
+    assert warnings == ["packet #4: malformed SIP: no end-of-headers"]
 
 
 def test_tcp_reassembles_invite_split_across_segments(
