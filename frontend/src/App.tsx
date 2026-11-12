@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { CallList } from "./components/CallList";
 import { DropZone } from "./components/DropZone";
 import { Ladder } from "./components/Ladder";
 import { MessageDetail } from "./components/MessageDetail";
-import { fetchPreloadSessionId, fetchSession, uploadPcap } from "./api";
+import { TabBar } from "./components/TabBar";
+import { fetchPreloadSessionId, fetchSession, PCAP_FILE_TYPES, uploadPcap } from "./api";
+import { useKeyboardNav } from "./hooks/useKeyboardNav";
+import { useWindowFileDrop } from "./hooks/useWindowFileDrop";
 import type { ParseResult, SipMessage } from "./types";
 
 interface Tab {
@@ -19,7 +22,7 @@ export function App() {
   const [activeIdx, setActiveIdx] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [windowDragging, setWindowDragging] = useState(false);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
 
   // One-time: if URL says ?preload=1, ask the server for the CLI-injected session.
   useEffect(() => {
@@ -37,99 +40,18 @@ export function App() {
     })();
   }, []);
 
-  // Keep a ref to handleFile so the window drop listener calls the fresh
-  // closure without re-binding every render.
-  const handleFileRef = useRef<(f: File) => void>(() => {});
-
-  // Full-window drag-and-drop once at least one tab is open.
-  // (The empty state already has its own DropZone.)
-  useEffect(() => {
-    if (tabs.length === 0) return;
-
-    const hasFiles = (e: DragEvent) =>
-      Array.from(e.dataTransfer?.types ?? []).includes("Files");
-
-    const onDragOver = (e: DragEvent) => {
-      if (!hasFiles(e)) return;
-      e.preventDefault();
-      setWindowDragging(true);
-    };
-    const onDragLeave = (e: DragEvent) => {
-      // dragleave fires at every child boundary — only act when the cursor
-      // actually leaves the window (relatedTarget is null in that case).
-      if (e.relatedTarget === null) setWindowDragging(false);
-    };
-    const onDrop = (e: DragEvent) => {
-      if (!hasFiles(e)) return;
-      e.preventDefault();
-      setWindowDragging(false);
-      const file = e.dataTransfer?.files?.[0];
-      if (file) handleFileRef.current(file);
-    };
-
-    window.addEventListener("dragover", onDragOver);
-    window.addEventListener("dragleave", onDragLeave);
-    window.addEventListener("drop", onDrop);
-    return () => {
-      window.removeEventListener("dragover", onDragOver);
-      window.removeEventListener("dragleave", onDragLeave);
-      window.removeEventListener("drop", onDrop);
-    };
-  }, [tabs.length]);
-
-  // Keyboard navigation: ↑/↓ step through messages in the active call,
-  // ←/→ switch between calls. Ignored while typing in a form field.
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
-      const activeTab = tabs[activeIdx];
-      if (!activeTab) return;
-      const calls = activeTab.result.calls;
-      if (calls.length === 0) return;
-
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        const call = calls.find((c) => c.call_id === activeTab.selectedCallId);
-        if (!call || call.messages.length === 0) return;
-        const pos = call.messages.findIndex(
-          (m) => m.index === activeTab.selectedMessageIndex,
-        );
-        const delta = e.key === "ArrowDown" ? 1 : -1;
-        const next =
-          pos < 0
-            ? e.key === "ArrowDown"
-              ? 0
-              : call.messages.length - 1
-            : Math.max(0, Math.min(call.messages.length - 1, pos + delta));
-        updateActive({ selectedMessageIndex: call.messages[next].index });
-        e.preventDefault();
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        const pos = calls.findIndex((c) => c.call_id === activeTab.selectedCallId);
-        const delta = e.key === "ArrowRight" ? 1 : -1;
-        const next =
-          pos < 0 ? 0 : Math.max(0, Math.min(calls.length - 1, pos + delta));
-        updateActive({
-          selectedCallId: calls[next].call_id,
-          selectedMessageIndex: null,
-        });
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-    // updateActive closes over activeIdx, so re-bind when tabs/activeIdx change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabs, activeIdx]);
+  const windowDragging = useWindowFileDrop({ enabled: tabs.length > 0, onFile: handleFile });
 
   const active = tabs[activeIdx] ?? null;
+
+  useKeyboardNav({
+    calls: active?.result.calls ?? [],
+    selectedCallId: active?.selectedCallId ?? null,
+    selectedMessageIndex: active?.selectedMessageIndex ?? null,
+    onSelectCall: (callId) => updateActive({ selectedCallId: callId, selectedMessageIndex: null }),
+    onSelectMessage: (idx) => updateActive({ selectedMessageIndex: idx }),
+  });
+
   const activeCall =
     active?.result.calls.find((c) => c.call_id === active.selectedCallId) ?? null;
   const activeMessage: SipMessage | null =
@@ -154,14 +76,10 @@ export function App() {
     }
   }
 
-  handleFileRef.current = handleFile;
-
   function closeTab(idx: number) {
-    setTabs((ts) => {
-      const next = ts.filter((_, i) => i !== idx);
-      if (activeIdx >= next.length) setActiveIdx(Math.max(0, next.length - 1));
-      return next;
-    });
+    const remaining = tabs.length - 1;
+    setTabs((ts) => ts.filter((_, i) => i !== idx));
+    setActiveIdx((a) => Math.max(0, Math.min(idx < a ? a - 1 : a, remaining - 1)));
   }
 
   function updateActive(patch: Partial<Tab>) {
@@ -177,28 +95,14 @@ export function App() {
       )}
       <div className="topbar">
         <span className="title">pcap-viz</span>
-        <div className="tabs">
-          {tabs.map((t, i) => (
-            <span
-              key={t.sessionId}
-              className={`tab${i === activeIdx ? " active" : ""}`}
-              onClick={() => setActiveIdx(i)}
-              title={t.result.filename}
-            >
-              <span>{t.result.filename}</span>
-              <span
-                className="close"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeTab(i);
-                }}
-              >
-                ×
-              </span>
-            </span>
-          ))}
-        </div>
-        {tabs.length > 0 && <LabelledFilePicker onFile={handleFile} loading={loading} />}
+        <TabBar
+          tabs={tabs.map((t) => ({ id: t.sessionId, label: t.result.filename }))}
+          activeIdx={activeIdx}
+          onSelect={setActiveIdx}
+          onClose={closeTab}
+          fallbackFocusRef={openButtonRef}
+        />
+        <OpenPcapButton ref={openButtonRef} onFile={handleFile} loading={loading} />
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -252,26 +156,31 @@ function makeTab(sessionId: string, result: ParseResult): Tab {
   };
 }
 
-function LabelledFilePicker({
-  onFile,
-  loading,
-}: {
-  onFile: (f: File) => void;
-  loading: boolean;
-}) {
-  return (
-    <label style={{ fontSize: 12, color: "var(--text-dim)", cursor: "pointer" }}>
-      {loading ? "parsing…" : "+ add pcap"}
-      <input
-        type="file"
-        accept=".pcap,.pcapng"
-        style={{ display: "none" }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onFile(f);
-          e.target.value = "";
-        }}
-      />
-    </label>
-  );
-}
+const OpenPcapButton = forwardRef<HTMLButtonElement, { onFile: (f: File) => void; loading: boolean }>(
+  function OpenPcapButton({ onFile, loading }, ref) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    return (
+      <>
+        <button
+          ref={ref}
+          type="button"
+          className="open-pcap"
+          onClick={() => inputRef.current?.click()}
+        >
+          {loading ? "Parsing…" : "Open pcap"}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={PCAP_FILE_TYPES}
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onFile(f);
+            e.target.value = "";
+          }}
+        />
+      </>
+    );
+  },
+);

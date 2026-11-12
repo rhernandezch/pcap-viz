@@ -1,5 +1,7 @@
 import type { ParseResponse, ParseResult } from "./types";
 
+export const PCAP_FILE_TYPES = ".pcap,.pcapng,application/vnd.tcpdump.pcap";
+
 export async function uploadPcap(file: File): Promise<ParseResponse> {
   const form = new FormData();
   form.append("file", file);
