@@ -37,14 +37,15 @@ describe("useThemePreference", () => {
 
   it("cycles system → light → dark → system", () => {
     const { result } = renderHook(() => useThemePreference());
+    const expected = ["system", "light", "dark", "system"];
     const seen = [result.current[0]];
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 1; i < expected.length; i++) {
       act(() => result.current[1]());
       seen.push(result.current[0]);
     }
 
-    expect(seen).toEqual(["system", "light", "dark", "system"]);
+    expect(seen).toEqual(expected);
     expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
   });
 
