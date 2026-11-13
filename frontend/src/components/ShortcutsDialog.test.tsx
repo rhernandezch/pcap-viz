@@ -47,9 +47,7 @@ describe("<ShortcutsDialog />", () => {
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
-});
 
-describe("<ShortcutsDialog /> with focus elsewhere", () => {
   it("closes on Escape even when focus has left the dialog", () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));

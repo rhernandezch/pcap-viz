@@ -88,8 +88,10 @@ export function App() {
       ? activeCall.messages.find((m) => m.index === active!.selectedMessageIndex) ?? null
       : null;
 
+  const busy = parsing !== null || preloading;
+
   async function handleFile(file: File) {
-    if (parsing !== null) return;
+    if (busy) return;
     setError(null);
     setParsing(file.name);
     try {
@@ -116,7 +118,6 @@ export function App() {
     setTabs((ts) => ts.map((t, i) => (i === activeIdx ? { ...t, ...patch } : t)));
   }
 
-  const busy = parsing !== null || preloading;
   const status = parsing !== null ? `Parsing ${parsing}…` : preloading ? "Loading capture…" : "";
 
   return (

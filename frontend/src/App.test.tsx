@@ -323,6 +323,20 @@ describe("<App /> feedback and empty states", () => {
     expect(screen.getByRole("button", { name: "Choose file" })).toBeDisabled();
   });
 
+  it("ignores a file dropped while the CLI preload loads", async () => {
+    window.history.pushState({}, "", "/?preload=1");
+    const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    await screen.findByText("Loading capture…");
+
+    act(() => {
+      window.dispatchEvent(fileDragEvent("drop", new File(["x"], "early.pcap")));
+    });
+
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/parse", expect.anything());
+  });
+
   it("shows a readable upload error that Dismiss clears", async () => {
     vi.stubGlobal(
       "fetch",
