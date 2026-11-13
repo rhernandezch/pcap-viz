@@ -46,3 +46,7 @@ export function arrowClass(m: SipMessage): string {
   const hundreds = Math.floor(m.status_code / 100);
   return `response-${hundreds}xx`;
 }
+
+export function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}

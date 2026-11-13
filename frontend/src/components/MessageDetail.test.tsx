@@ -29,7 +29,7 @@ function msg(overrides: Partial<SipMessage> = {}): SipMessage {
 describe("<MessageDetail />", () => {
   it("renders nothing when no message is selected", () => {
     render(<MessageDetail message={null} />);
-    expect(screen.getByText(/click a message/i)).toBeInTheDocument();
+    expect(screen.getByText("Select a message in the ladder, or press ↓.")).toBeInTheDocument();
   });
 
   it("renders the parsed SDP summary above the raw body when present", () => {

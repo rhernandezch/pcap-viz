@@ -16,7 +16,7 @@ export function MessageDetail({ message }: Props) {
   }, [message]);
 
   if (!message) {
-    return <div className="detail-empty">Click a message on the ladder to see its headers.</div>;
+    return <div className="detail-empty">Select a message in the ladder, or press ↓.</div>;
   }
 
   return (

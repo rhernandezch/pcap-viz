@@ -7,6 +7,9 @@ interface Options {
   selectedMessageIndex: number | null;
   onSelectCall: (callId: string) => void;
   onSelectMessage: (messageIndex: number) => void;
+  onToggleHelp: () => void;
+  // While a dialog is open, only the help key stays active.
+  paused: boolean;
 }
 
 function isTyping(target: EventTarget | null): boolean {
@@ -27,7 +30,12 @@ export function useKeyboardNav(options: Options): void {
       if (e.defaultPrevented || isTyping(e.target)) return;
       const { calls, selectedCallId, selectedMessageIndex, onSelectCall, onSelectMessage } =
         optionsRef.current;
-      if (calls.length === 0) return;
+      if (e.key === "?") {
+        optionsRef.current.onToggleHelp();
+        e.preventDefault();
+        return;
+      }
+      if (optionsRef.current.paused || calls.length === 0) return;
 
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         const call = calls.find((c) => c.call_id === selectedCallId);
