@@ -3,7 +3,9 @@ import { CallList } from "./components/CallList";
 import { DropZone } from "./components/DropZone";
 import { Ladder } from "./components/Ladder";
 import { MessageDetail } from "./components/MessageDetail";
+import { Legend } from "./components/Legend";
 import { TabBar } from "./components/TabBar";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { fetchPreloadSessionId, fetchSession, PCAP_FILE_TYPES, uploadPcap } from "./api";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { useWindowFileDrop } from "./hooks/useWindowFileDrop";
@@ -103,6 +105,7 @@ export function App() {
           fallbackFocusRef={openButtonRef}
         />
         <OpenPcapButton ref={openButtonRef} onFile={handleFile} loading={loading} />
+        <ThemeToggle />
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -126,10 +129,13 @@ export function App() {
             />
           </aside>
           <section className="panel">
-            <div className="panel-header">
-              {activeCall
-                ? `Ladder · ${activeCall.message_count} messages · ${activeCall.endpoints.length} endpoints`
-                : "Ladder"}
+            <div className="panel-header ladder-header">
+              <span>
+                {activeCall
+                  ? `Ladder · ${activeCall.message_count} messages · ${activeCall.endpoints.length} endpoints`
+                  : "Ladder"}
+              </span>
+              <Legend />
             </div>
             <Ladder
               call={activeCall}

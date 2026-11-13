@@ -1,21 +1,38 @@
+/* Every color is a light-dark() token. */
 :root {
-  --bg: #0e1117;
-  --bg-alt: #161b22;
-  --bg-panel: #1c232d;
-  --border: #2b3440;
-  --border-strong: #3b4654;
-  --text: #e6edf3;
-  --text-dim: #8b96a5;
-  --accent: #6fb3ff;
-  --accent-soft: #1f3553;
-  --request: #8ce99a;
-  --response-1xx: #c0c0f0;
-  --response-2xx: #8ce99a;
-  --response-3xx: #ffd59a;
-  --response-4xx: #ffb3b3;
-  --response-5xx: #ff8fa3;
-  --response-6xx: #ff8fa3;
+  color-scheme: light dark;
+  --bg: light-dark(#ffffff, #0e1117);
+  --bg-alt: light-dark(#f6f8fa, #161b22);
+  --bg-panel: light-dark(#f6f8fa, #1c232d);
+  --border: light-dark(#d0d7de, #2b3440);
+  --border-strong: light-dark(#afb8c1, #3b4654);
+  --text: light-dark(#1f2328, #e6edf3);
+  --text-dim: light-dark(#59636e, #8b96a5);
+  --accent: light-dark(#0969da, #6fb3ff);
+  --accent-soft: light-dark(#ddf4ff, #1f3553);
+  --row-hover: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.03));
+  --overlay: light-dark(rgba(255, 255, 255, 0.6), rgba(14, 17, 23, 0.6));
+  --error-bg: light-dark(#ffebe9, #4d1f27);
+  --error-text: light-dark(#82071e, #ffd0d5);
+  --error-border: light-dark(#ffcecb, #6e2c36);
+  --arrow-request: light-dark(#0969da, #79c0ff);
+  --arrow-1xx: light-dark(#6e7781, #a5a5c8);
+  --arrow-2xx: light-dark(#1a7f37, #56d364);
+  --arrow-3xx: light-dark(#9a6700, #e3b341);
+  --arrow-4xx: light-dark(#bc4c00, #ffa657);
+  --arrow-5xx: light-dark(#cf222e, #ff7b72);
   --mono: "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 * {
@@ -202,7 +219,7 @@ button:hover {
   inset: 0;
   z-index: 50;
   pointer-events: none;
-  background: rgba(14, 17, 23, 0.6);
+  background: var(--overlay);
   border: 3px dashed var(--accent);
   display: flex;
   align-items: center;
@@ -300,18 +317,49 @@ button:hover {
   font-size: 12px;
   font-family: var(--mono);
 }
+/* One class-to-color map for ladder arrows and legend swatches. */
+:is(.arrow-line, .legend-swatch).request { --arrow: var(--arrow-request); }
+:is(.arrow-line, .legend-swatch).response-1xx { --arrow: var(--arrow-1xx); }
+:is(.arrow-line, .legend-swatch).response-2xx { --arrow: var(--arrow-2xx); }
+:is(.arrow-line, .legend-swatch).response-3xx { --arrow: var(--arrow-3xx); }
+:is(.arrow-line, .legend-swatch).response-4xx { --arrow: var(--arrow-4xx); }
+:is(.arrow-line, .legend-swatch):is(.response-5xx, .response-6xx) { --arrow: var(--arrow-5xx); }
+
 .ladder .arrow-line {
-  stroke: var(--text-dim);
+  stroke: var(--arrow, var(--text-dim));
+  color: var(--arrow, var(--text-dim));
   stroke-width: 1.5;
   fill: none;
 }
-.ladder .arrow-line.request { stroke: var(--request); }
-.ladder .arrow-line.response-1xx { stroke: var(--response-1xx); }
-.ladder .arrow-line.response-2xx { stroke: var(--response-2xx); }
-.ladder .arrow-line.response-3xx { stroke: var(--response-3xx); }
-.ladder .arrow-line.response-4xx { stroke: var(--response-4xx); }
-.ladder .arrow-line.response-5xx { stroke: var(--response-5xx); }
-.ladder .arrow-line.response-6xx { stroke: var(--response-6xx); }
+
+.ladder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.legend-swatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--arrow);
+}
 
 .ladder .arrow-label {
   fill: var(--text);
@@ -343,7 +391,7 @@ button:hover {
   fill: transparent;
 }
 .ladder .row:hover .row-bg {
-  fill: rgba(255, 255, 255, 0.03);
+  fill: var(--row-hover);
 }
 
 /* Message detail */
@@ -384,7 +432,7 @@ button:hover {
   margin-top: 12px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
-  color: var(--response-2xx);
+  color: var(--arrow-2xx);
 }
 .detail .sdp {
   margin-top: 12px;
@@ -415,7 +463,7 @@ button:hover {
   font-weight: 600;
 }
 .detail .sdp-endpoint {
-  color: var(--response-2xx);
+  color: var(--arrow-2xx);
 }
 .detail .sdp-proto {
   color: var(--text-dim);
@@ -447,9 +495,9 @@ button:hover {
 
 .error-banner {
   padding: 8px 12px;
-  background: #4d1f27;
-  color: #ffd0d5;
-  border-bottom: 1px solid #6e2c36;
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-bottom: 1px solid var(--error-border);
   font-size: 12.5px;
 }
 
@@ -464,7 +512,7 @@ button:hover {
 }
 .error-boundary h2 {
   margin-top: 0;
-  color: var(--response-4xx);
+  color: var(--arrow-5xx);
 }
 .error-boundary-message {
   margin: 12px 0 16px;
@@ -484,9 +532,9 @@ button:hover {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2b3440;
+  background: var(--border);
   border-radius: 5px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b4654;
+  background: var(--border-strong);
 }
