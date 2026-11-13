@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useRef, useState } from "react";
+import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import { CallList } from "./components/CallList";
 import { DropZone } from "./components/DropZone";
 import { Ladder } from "./components/Ladder";
@@ -9,7 +10,10 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { fetchPreloadSessionId, fetchSession, PCAP_FILE_TYPES, uploadPcap } from "./api";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { useWindowFileDrop } from "./hooks/useWindowFileDrop";
+import { safeStorage } from "./storage";
 import type { ParseResult, SipMessage } from "./types";
+
+const LAYOUT_ID = "pcap-viz:layout";
 
 interface Tab {
   sessionId: string;
@@ -25,6 +29,11 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const openButtonRef = useRef<HTMLButtonElement>(null);
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    id: LAYOUT_ID,
+    storage: safeStorage,
+    onlySaveAfterUserInteractions: true,
+  });
 
   // One-time: if URL says ?preload=1, ask the server for the CLI-injected session.
   useEffect(() => {
@@ -115,8 +124,21 @@ export function App() {
           <DropZone onFile={handleFile} />
         </div>
       ) : (
-        <div className="main">
-          <aside className="panel">
+        <Group
+          className="main"
+          id={LAYOUT_ID}
+          defaultLayout={defaultLayout}
+          onLayoutChanged={onLayoutChanged}
+        >
+          <Panel
+            id="calls"
+            className="panel"
+            defaultSize="20%"
+            minSize={200}
+            collapsible
+            role="complementary"
+            aria-label="Calls"
+          >
             <div className="panel-header">
               Calls ({active?.result.calls.length ?? 0})
             </div>
@@ -127,8 +149,9 @@ export function App() {
                 updateActive({ selectedCallId: call_id, selectedMessageIndex: null })
               }
             />
-          </aside>
-          <section className="panel">
+          </Panel>
+          <Separator className="pane-separator" aria-label="Resize calls panel" />
+          <Panel id="ladder" className="panel" minSize={320}>
             <div className="panel-header ladder-header">
               <span>
                 {activeCall
@@ -142,12 +165,21 @@ export function App() {
               selectedIndex={active?.selectedMessageIndex ?? null}
               onSelect={(idx) => updateActive({ selectedMessageIndex: idx })}
             />
-          </section>
-          <aside className="panel">
+          </Panel>
+          <Separator className="pane-separator" aria-label="Resize message panel" />
+          <Panel
+            id="detail"
+            className="panel panel-detail"
+            defaultSize="28%"
+            minSize={280}
+            collapsible
+            role="complementary"
+            aria-label="Message"
+          >
             <div className="panel-header">Message</div>
             <MessageDetail message={activeMessage} />
-          </aside>
-        </div>
+          </Panel>
+        </Group>
       )}
     </div>
   );

@@ -147,22 +147,28 @@ button:hover {
 }
 
 .main {
-  display: grid;
-  grid-template-columns: 280px 1fr 380px;
   flex: 1;
   min-height: 0;
 }
 
 .panel {
-  border-right: 1px solid var(--border);
+  height: 100%;
   background: var(--bg);
   overflow: auto;
-  min-height: 0;
 }
-.panel:last-child {
-  border-right: 0;
-  border-left: 1px solid var(--border);
+.panel-detail {
   background: var(--bg-panel);
+}
+
+.pane-separator {
+  width: 1px;
+  background: var(--border);
+}
+.pane-separator:is([data-separator="hover"], [data-separator="active"], [data-separator="focus"]) {
+  background: var(--accent);
+}
+.pane-separator:focus-visible {
+  outline-offset: 0;
 }
 
 .panel-header {

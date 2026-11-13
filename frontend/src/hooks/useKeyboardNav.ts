@@ -22,7 +22,9 @@ export function useKeyboardNav(options: Options): void {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (isTyping(e.target)) return;
+      // A focused control that handled the key (a pane separator resizing)
+      // marks it defaultPrevented; don't also move the selection.
+      if (e.defaultPrevented || isTyping(e.target)) return;
       const { calls, selectedCallId, selectedMessageIndex, onSelectCall, onSelectMessage } =
         optionsRef.current;
       if (calls.length === 0) return;
