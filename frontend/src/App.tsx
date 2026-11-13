@@ -1,13 +1,16 @@
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import { CallList } from "./components/CallList";
 import { DropZone } from "./components/DropZone";
+import { FilePickerButton } from "./components/FilePickerButton";
 import { Ladder } from "./components/Ladder";
 import { MessageDetail } from "./components/MessageDetail";
 import { Legend } from "./components/Legend";
+import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { TabBar } from "./components/TabBar";
 import { ThemeToggle } from "./components/ThemeToggle";
-import { fetchPreloadSessionId, fetchSession, PCAP_FILE_TYPES, uploadPcap } from "./api";
+import { WarningsBar } from "./components/WarningsBar";
+import { fetchPreloadSessionId, fetchSession, uploadPcap } from "./api";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { useWindowFileDrop } from "./hooks/useWindowFileDrop";
 import { safeStorage } from "./storage";
@@ -23,11 +26,15 @@ interface Tab {
   selectedMessageIndex: number | null;
 }
 
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
 export function App() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeIdx, setActiveIdx] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [parsing, setParsing] = useState<string | null>(null);
+  const [preloading, setPreloading] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: LAYOUT_ID,
@@ -39,19 +46,27 @@ export function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("preload") !== "1") return;
+    // StrictMode runs this effect twice in development; only the last run may add the tab.
+    let cancelled = false;
+    setPreloading(true);
     (async () => {
       try {
         const sid = await fetchPreloadSessionId();
         if (!sid) return;
         const result = await fetchSession(sid);
-        setTabs((ts) => [...ts, makeTab(sid, result)]);
+        if (!cancelled) setTabs((ts) => [...ts, makeTab(sid, result)]);
       } catch (e: unknown) {
-        setError(String(e));
+        if (!cancelled) setError(`Couldn't load the preloaded capture: ${errorMessage(e)}`);
+      } finally {
+        if (!cancelled) setPreloading(false);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const windowDragging = useWindowFileDrop({ enabled: tabs.length > 0, onFile: handleFile });
+  const windowDragging = useWindowFileDrop({ enabled: parsing === null, onFile: handleFile });
 
   const active = tabs[activeIdx] ?? null;
 
@@ -61,6 +76,8 @@ export function App() {
     selectedMessageIndex: active?.selectedMessageIndex ?? null,
     onSelectCall: (callId) => updateActive({ selectedCallId: callId, selectedMessageIndex: null }),
     onSelectMessage: (idx) => updateActive({ selectedMessageIndex: idx }),
+    onToggleHelp: () => setHelpOpen((open) => !open),
+    paused: helpOpen,
   });
 
   const activeCall =
@@ -71,8 +88,9 @@ export function App() {
       : null;
 
   async function handleFile(file: File) {
+    if (parsing !== null) return;
     setError(null);
-    setLoading(true);
+    setParsing(file.name);
     try {
       const { session_id, result } = await uploadPcap(file);
       setTabs((ts) => {
@@ -81,9 +99,9 @@ export function App() {
         return next;
       });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(`Couldn't open ${file.name}: ${errorMessage(e)}`);
     } finally {
-      setLoading(false);
+      setParsing(null);
     }
   }
 
@@ -97,31 +115,67 @@ export function App() {
     setTabs((ts) => ts.map((t, i) => (i === activeIdx ? { ...t, ...patch } : t)));
   }
 
+  const status = parsing !== null ? `Parsing ${parsing}…` : preloading ? "Loading capture…" : "";
+
   return (
     <div className={`app${windowDragging ? " window-drag-active" : ""}`}>
       {windowDragging && (
         <div className="window-drag-overlay" aria-hidden="true">
-          <div className="window-drag-hint">Drop to add another pcap</div>
+          <div className="window-drag-hint">
+            {tabs.length > 0 ? "Drop to add another pcap" : "Drop to open the pcap"}
+          </div>
         </div>
       )}
       <div className="topbar">
         <span className="title">pcap-viz</span>
         <TabBar
-          tabs={tabs.map((t) => ({ id: t.sessionId, label: t.result.filename }))}
+          tabs={tabs.map((t) => ({
+            id: t.sessionId,
+            label: t.result.filename,
+            title: `${t.result.calls.length} calls · ${t.result.sip_message_count} SIP messages · ${t.result.packet_count} packets`,
+          }))}
           activeIdx={activeIdx}
           onSelect={setActiveIdx}
           onClose={closeTab}
           fallbackFocusRef={openButtonRef}
         />
-        <OpenPcapButton ref={openButtonRef} onFile={handleFile} loading={loading} />
+        <span className="parse-status" role="status">
+          {status}
+        </span>
+        <FilePickerButton
+          ref={openButtonRef}
+          className="open-pcap"
+          label="Open pcap"
+          onFile={handleFile}
+          disabled={parsing !== null}
+        />
+        <button type="button" aria-label="Keyboard shortcuts" onClick={() => setHelpOpen(true)}>
+          ?
+        </button>
         <ThemeToggle />
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && (
+        <div className="error-banner" role="alert">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
 
-      {tabs.length === 0 ? (
+      {active && <WarningsBar key={active.sessionId} warnings={active.result.warnings} />}
+
+      {!active ? (
         <div className="empty-state">
-          <DropZone onFile={handleFile} />
+          <DropZone onFile={handleFile} disabled={parsing !== null} />
+        </div>
+      ) : active.result.calls.length === 0 ? (
+        <div className="empty-state">
+          <p className="no-sip">
+            No SIP calls found in {active.result.filename}. Scanned {active.result.packet_count}{" "}
+            packets; pcap-viz reads SIP over UDP and TCP.
+          </p>
         </div>
       ) : (
         <Group
@@ -139,12 +193,10 @@ export function App() {
             role="complementary"
             aria-label="Calls"
           >
-            <div className="panel-header">
-              Calls ({active?.result.calls.length ?? 0})
-            </div>
+            <div className="panel-header">Calls ({active.result.calls.length})</div>
             <CallList
-              calls={active?.result.calls ?? []}
-              selectedCallId={active?.selectedCallId ?? null}
+              calls={active.result.calls}
+              selectedCallId={active.selectedCallId}
               onSelect={(call_id) =>
                 updateActive({ selectedCallId: call_id, selectedMessageIndex: null })
               }
@@ -162,7 +214,7 @@ export function App() {
             </div>
             <Ladder
               call={activeCall}
-              selectedIndex={active?.selectedMessageIndex ?? null}
+              selectedIndex={active.selectedMessageIndex}
               onSelect={(idx) => updateActive({ selectedMessageIndex: idx })}
             />
           </Panel>
@@ -181,6 +233,7 @@ export function App() {
           </Panel>
         </Group>
       )}
+      {helpOpen && <ShortcutsDialog onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }
@@ -193,32 +246,3 @@ function makeTab(sessionId: string, result: ParseResult): Tab {
     selectedMessageIndex: null,
   };
 }
-
-const OpenPcapButton = forwardRef<HTMLButtonElement, { onFile: (f: File) => void; loading: boolean }>(
-  function OpenPcapButton({ onFile, loading }, ref) {
-    const inputRef = useRef<HTMLInputElement>(null);
-    return (
-      <>
-        <button
-          ref={ref}
-          type="button"
-          className="open-pcap"
-          onClick={() => inputRef.current?.click()}
-        >
-          {loading ? "Parsing…" : "Open pcap"}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={PCAP_FILE_TYPES}
-          hidden
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onFile(f);
-            e.target.value = "";
-          }}
-        />
-      </>
-    );
-  },
-);

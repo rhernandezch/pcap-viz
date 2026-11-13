@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { Call, ParseResult, SipMessage } from "./types";
@@ -258,5 +259,167 @@ describe("<App />", () => {
     fireEvent.keyDown(screen.getByRole("tab", { name: "a.pcap" }), { key: "Delete" });
 
     expect(screen.getByRole("button", { name: "Open pcap" })).toHaveFocus();
+  });
+});
+
+describe("<App /> feedback and empty states", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    window.history.pushState({}, "", "/");
+  });
+
+  function chooseFile(name: string) {
+    const input = document.querySelector<HTMLInputElement>(".empty-state input[type=file]")!;
+    fireEvent.change(input, { target: { files: [new File(["x"], name)] } });
+  }
+
+  it("shows the empty state with a file picker and the shortcut hint", () => {
+    vi.stubGlobal("fetch", vi.fn());
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Open a SIP capture" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose file" })).toBeInTheDocument();
+    expect(screen.getByText(/Press \? for keyboard shortcuts/)).toBeInTheDocument();
+  });
+
+  it("shows Parsing <file>… while the first upload is pending and blocks a second one", async () => {
+    let finish: (r: Response) => void = () => {};
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((r) => (finish = r))));
+    render(<App />);
+
+    chooseFile("call.pcap");
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Parsing call.pcap…");
+    expect(screen.getByRole("button", { name: "Choose file" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open pcap" })).toBeDisabled();
+    await act(async () => finish(jsonResponse({ session_id: "s", result: result("call.pcap", []) })));
+    expect(screen.getByRole("status")).toHaveTextContent("");
+  });
+
+  it("shows a readable upload error that Dismiss clears", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response('{"detail":"pcap too large (max 100 MB)"}', { status: 413 }),
+      ),
+    );
+    render(<App />);
+
+    chooseFile("big.pcap");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Couldn't open big.pcap: pcap too large (max 100 MB)",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("uploads a file dropped on the window before any capture is open", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ session_id: "s", result: result("drop.pcap", []) }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    act(() => {
+      window.dispatchEvent(fileDragEvent("drop", new File(["x"], "drop.pcap")));
+    });
+
+    expect(await screen.findByRole("tab", { name: "drop.pcap" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/parse", expect.anything());
+  });
+
+  it("explains a capture with no SIP calls", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          session_id: "s",
+          result: { ...result("quiet.pcap", []), packet_count: 1234 },
+        }),
+      ),
+    );
+    render(<App />);
+
+    chooseFile("quiet.pcap");
+
+    expect(
+      await screen.findByText(
+        "No SIP calls found in quiet.pcap. Scanned 1234 packets; pcap-viz reads SIP over UDP and TCP.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows parser warnings for the active capture only, expandable", async () => {
+    window.history.pushState({}, "", "/?preload=1");
+    const warned = {
+      ...result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]),
+      warnings: ["packet #3: truncated SIP", "packet #9: malformed SIP: bad header"],
+    };
+    stubPreload(warned);
+    render(<App />);
+    await screen.findByRole("tab", { name: "a.pcap" });
+
+    const bar = screen.getByRole("region", { name: "Parser warnings" });
+    expect(bar).toHaveTextContent("2 parser warnings");
+    expect(screen.queryByText("packet #3: truncated SIP")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.getByText("packet #3: truncated SIP")).toBeInTheDocument();
+    expect(screen.getByText("packet #9: malformed SIP: bad header")).toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(fileDragEvent("drop", new File(["x"], "b.pcap")));
+    });
+    await screen.findByRole("tab", { name: "b.pcap" });
+    expect(screen.queryByRole("region", { name: "Parser warnings" })).not.toBeInTheDocument();
+  });
+
+  it("describes each capture in its tab tooltip", async () => {
+    window.history.pushState({}, "", "/?preload=1");
+    stubPreload(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+    render(<App />);
+
+    expect(await screen.findByRole("tab", { name: "a.pcap" })).toHaveAttribute(
+      "title",
+      "1 calls · 4 SIP messages · 4 packets",
+    );
+  });
+
+  it("loads the CLI preload once under StrictMode", async () => {
+    window.history.pushState({}, "", "/?preload=1");
+    stubPreload(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+
+    await screen.findByRole("tab", { name: "a.pcap" });
+    await act(async () => {});
+    expect(screen.getAllByRole("tab")).toHaveLength(1);
+  });
+
+  it("opens the shortcut help with ?, but not while typing", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    render(<App />);
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+
+    fireEvent.keyDown(input, { key: "?" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(document.body, { key: "?" });
+    expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeInTheDocument();
+    input.remove();
+  });
+
+  it("opens the shortcut help from the topbar button", () => {
+    vi.stubGlobal("fetch", vi.fn());
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
+
+    expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeInTheDocument();
   });
 });
