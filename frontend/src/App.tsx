@@ -130,7 +130,15 @@ export function App() {
           defaultLayout={defaultLayout}
           onLayoutChanged={onLayoutChanged}
         >
-          <Panel id="calls" className="panel" defaultSize="20%" minSize={200} collapsible>
+          <Panel
+            id="calls"
+            className="panel"
+            defaultSize="20%"
+            minSize={200}
+            collapsible
+            role="complementary"
+            aria-label="Calls"
+          >
             <div className="panel-header">
               Calls ({active?.result.calls.length ?? 0})
             </div>
@@ -159,7 +167,15 @@ export function App() {
             />
           </Panel>
           <Separator className="pane-separator" aria-label="Resize message panel" />
-          <Panel id="detail" className="panel panel-detail" defaultSize="28%" minSize={280} collapsible>
+          <Panel
+            id="detail"
+            className="panel panel-detail"
+            defaultSize="28%"
+            minSize={280}
+            collapsible
+            role="complementary"
+            aria-label="Message"
+          >
             <div className="panel-header">Message</div>
             <MessageDetail message={activeMessage} />
           </Panel>

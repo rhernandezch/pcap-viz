@@ -49,10 +49,7 @@ export function TabBar({ tabs, activeIdx, onSelect, onClose, fallbackFocusRef }:
       : e.key === "End" ? last
       : null;
     if (next === null) return;
-    // Keeps the window-level call shortcuts from also acting on this key;
-    // ArrowUp/ArrowDown still reach them.
     e.preventDefault();
-    e.stopPropagation();
     onSelect(next);
     tabButtons()[next]?.focus();
   }

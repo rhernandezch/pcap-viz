@@ -160,16 +160,9 @@ button:hover {
   background: var(--bg-panel);
 }
 
-/* A 1px line with a wider invisible grab area on each side. */
 .pane-separator {
-  position: relative;
   width: 1px;
   background: var(--border);
-}
-.pane-separator::after {
-  content: "";
-  position: absolute;
-  inset: 0 -4px;
 }
 .pane-separator:is([data-separator="hover"], [data-separator="active"], [data-separator="focus"]) {
   background: var(--accent);

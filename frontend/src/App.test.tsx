@@ -103,6 +103,7 @@ describe("<App />", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    localStorage.clear();
     window.history.pushState({}, "", "/");
   });
 
@@ -124,6 +125,13 @@ describe("<App />", () => {
     ]);
   });
 
+  it("keeps the calls and message panes as labelled landmarks", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+
+    const landmarks = screen.getAllByRole("complementary");
+    expect(landmarks.map((l) => l.getAttribute("aria-label"))).toEqual(["Calls", "Message"]);
+  });
+
   it("restores the saved pane layout", async () => {
     localStorage.setItem(
       "react-resizable-panels:pcap-viz:layout",
@@ -133,7 +141,6 @@ describe("<App />", () => {
 
     expect(screen.getByTestId("calls")).toHaveStyle({ flexGrow: "30" });
     expect(screen.getByTestId("detail")).toHaveStyle({ flexGrow: "25" });
-    localStorage.clear();
   });
 
   it("shows the arrow color legend and the theme toggle once a capture is open", async () => {
@@ -166,6 +173,19 @@ describe("<App />", () => {
 
     expect(screen.queryByText("INVITE sip:bob@example.com SIP/2.0")).not.toBeInTheDocument();
     input.remove();
+  });
+
+  it("ignores arrow keys that a focused control already handled", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+    // Stands in for a pane separator, which handles its own arrow keys.
+    const control = document.createElement("div");
+    control.addEventListener("keydown", (e) => e.preventDefault());
+    document.body.appendChild(control);
+
+    fireEvent.keyDown(control, { key: "ArrowDown" });
+
+    expect(screen.queryByText("INVITE sip:bob@example.com SIP/2.0")).not.toBeInTheDocument();
+    control.remove();
   });
 
   it("uploads a file dropped anywhere on the window once a tab is open", async () => {
