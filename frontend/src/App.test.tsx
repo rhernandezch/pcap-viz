@@ -114,6 +114,28 @@ describe("<App />", () => {
     expect(await screen.findByText("INVITE sip:bob@example.com SIP/2.0")).toBeInTheDocument();
   });
 
+  it("separates the three panes with labelled, resizable separators", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+
+    const separators = screen.getAllByRole("separator");
+    expect(separators.map((s) => s.getAttribute("aria-label"))).toEqual([
+      "Resize calls panel",
+      "Resize message panel",
+    ]);
+  });
+
+  it("restores the saved pane layout", async () => {
+    localStorage.setItem(
+      "react-resizable-panels:pcap-viz:layout",
+      JSON.stringify({ calls: 30, ladder: 45, detail: 25 }),
+    );
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+
+    expect(screen.getByTestId("calls")).toHaveStyle({ flexGrow: "30" });
+    expect(screen.getByTestId("detail")).toHaveStyle({ flexGrow: "25" });
+    localStorage.clear();
+  });
+
   it("shows the arrow color legend and the theme toggle once a capture is open", async () => {
     await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
 
