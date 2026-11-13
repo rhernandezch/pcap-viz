@@ -1,19 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
-interface Options {
-  enabled: boolean;
-  onFile: (file: File) => void;
-}
-
-export function useWindowFileDrop({ enabled, onFile }: Options): boolean {
+export function useWindowFileDrop(onFile: (file: File) => void): boolean {
   const [dragging, setDragging] = useState(false);
   // Read through a ref so the listeners call the latest closure without re-binding.
   const onFileRef = useRef(onFile);
   onFileRef.current = onFile;
 
   useEffect(() => {
-    if (!enabled) return;
-
     const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
 
     const onDragOver = (e: DragEvent) => {
@@ -42,7 +35,7 @@ export function useWindowFileDrop({ enabled, onFile }: Options): boolean {
       window.removeEventListener("dragleave", onDragLeave);
       window.removeEventListener("drop", onDrop);
     };
-  }, [enabled]);
+  }, []);
 
   return dragging;
 }

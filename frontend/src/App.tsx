@@ -14,6 +14,7 @@ import { fetchPreloadSessionId, fetchSession, uploadPcap } from "./api";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { useWindowFileDrop } from "./hooks/useWindowFileDrop";
 import { safeStorage } from "./storage";
+import { plural } from "./util";
 import type { ParseResult, SipMessage } from "./types";
 
 const LAYOUT_ID = "pcap-viz:layout";
@@ -66,7 +67,7 @@ export function App() {
     };
   }, []);
 
-  const windowDragging = useWindowFileDrop({ enabled: parsing === null, onFile: handleFile });
+  const windowDragging = useWindowFileDrop(handleFile);
 
   const active = tabs[activeIdx] ?? null;
 
@@ -115,6 +116,7 @@ export function App() {
     setTabs((ts) => ts.map((t, i) => (i === activeIdx ? { ...t, ...patch } : t)));
   }
 
+  const busy = parsing !== null || preloading;
   const status = parsing !== null ? `Parsing ${parsing}…` : preloading ? "Loading capture…" : "";
 
   return (
@@ -132,7 +134,12 @@ export function App() {
           tabs={tabs.map((t) => ({
             id: t.sessionId,
             label: t.result.filename,
-            title: `${t.result.calls.length} calls · ${t.result.sip_message_count} SIP messages · ${t.result.packet_count} packets`,
+            title: [
+              t.result.filename,
+              plural(t.result.calls.length, "call"),
+              plural(t.result.sip_message_count, "SIP message"),
+              plural(t.result.packet_count, "packet"),
+            ].join(" · "),
           }))}
           activeIdx={activeIdx}
           onSelect={setActiveIdx}
@@ -147,9 +154,14 @@ export function App() {
           className="open-pcap"
           label="Open pcap"
           onFile={handleFile}
-          disabled={parsing !== null}
+          disabled={busy}
         />
-        <button type="button" aria-label="Keyboard shortcuts" onClick={() => setHelpOpen(true)}>
+        <button
+          type="button"
+          aria-label="Keyboard shortcuts"
+          aria-keyshortcuts="?"
+          onClick={() => setHelpOpen(true)}
+        >
           ?
         </button>
         <ThemeToggle />
@@ -168,13 +180,13 @@ export function App() {
 
       {!active ? (
         <div className="empty-state">
-          <DropZone onFile={handleFile} disabled={parsing !== null} />
+          <DropZone onFile={handleFile} disabled={busy} />
         </div>
       ) : active.result.calls.length === 0 ? (
         <div className="empty-state">
           <p className="no-sip">
-            No SIP calls found in {active.result.filename}. Scanned {active.result.packet_count}{" "}
-            packets; pcap-viz reads SIP over UDP and TCP.
+            No SIP calls found in {active.result.filename}. Scanned{" "}
+            {plural(active.result.packet_count, "packet")}; pcap-viz reads SIP over UDP and TCP.
           </p>
         </div>
       ) : (

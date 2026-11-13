@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Call, SipMessage } from "./types";
-import { arrowClass, finalStatusOf, formatDuration, labelOf, shortUri } from "./util";
+import { arrowClass, finalStatusOf, formatDuration, labelOf, plural, shortUri } from "./util";
 
 function msg(overrides: Partial<SipMessage>): SipMessage {
   return {
@@ -138,5 +138,13 @@ describe("arrowClass", () => {
 
   it("returns empty string when neither method nor status is set", () => {
     expect(arrowClass(msg({}))).toBe("");
+  });
+});
+
+describe("plural", () => {
+  it("uses the singular only for exactly one", () => {
+    expect(plural(1, "call")).toBe("1 call");
+    expect(plural(0, "call")).toBe("0 calls");
+    expect(plural(1234, "packet")).toBe("1234 packets");
   });
 });

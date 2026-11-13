@@ -15,6 +15,7 @@
   --error-bg: light-dark(#ffebe9, #4d1f27);
   --error-text: light-dark(#82071e, #ffd0d5);
   --error-border: light-dark(#ffcecb, #6e2c36);
+  --warning-text: light-dark(#9a6700, #e3b341);
   --arrow-request: light-dark(#0969da, #79c0ff);
   --arrow-1xx: light-dark(#6e7781, #a5a5c8);
   --arrow-2xx: light-dark(#1a7f37, #56d364);
@@ -518,7 +519,7 @@ button:hover {
   padding: 6px 12px;
   background: var(--bg-alt);
   border-bottom: 1px solid var(--border);
-  color: var(--arrow-3xx);
+  color: var(--warning-text);
   font-size: 12.5px;
 }
 .warnings-summary {

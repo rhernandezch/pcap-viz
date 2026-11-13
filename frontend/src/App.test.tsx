@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -297,6 +297,32 @@ describe("<App /> feedback and empty states", () => {
     expect(screen.getByRole("status")).toHaveTextContent("");
   });
 
+  it("ignores a file dropped while another one is parsing", async () => {
+    const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    chooseFile("first.pcap");
+    await screen.findByText("Parsing first.pcap…");
+
+    const drop = fileDragEvent("drop", new File(["x"], "second.pcap"));
+    act(() => {
+      window.dispatchEvent(drop);
+    });
+
+    expect(drop.defaultPrevented).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables opening another file while the CLI preload loads", async () => {
+    window.history.pushState({}, "", "/?preload=1");
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
+    render(<App />);
+
+    expect(await screen.findByText("Loading capture…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open pcap" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Choose file" })).toBeDisabled();
+  });
+
   it("shows a readable upload error that Dismiss clears", async () => {
     vi.stubGlobal(
       "fetch",
@@ -362,7 +388,7 @@ describe("<App /> feedback and empty states", () => {
     await screen.findByRole("tab", { name: "a.pcap" });
 
     const bar = screen.getByRole("region", { name: "Parser warnings" });
-    expect(bar).toHaveTextContent("2 parser warnings");
+    expect(within(bar).getByText("2 parser warnings")).toBeInTheDocument();
     expect(screen.queryByText("packet #3: truncated SIP")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show" }));
     expect(screen.getByText("packet #3: truncated SIP")).toBeInTheDocument();
@@ -382,7 +408,7 @@ describe("<App /> feedback and empty states", () => {
 
     expect(await screen.findByRole("tab", { name: "a.pcap" })).toHaveAttribute(
       "title",
-      "1 calls · 4 SIP messages · 4 packets",
+      "a.pcap · 1 call · 4 SIP messages · 4 packets",
     );
   });
 

@@ -1,39 +1,43 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseApiError, uploadPcap } from "./api";
+import { fetchSession, uploadPcap } from "./api";
 
-describe("parseApiError", () => {
-  it("reads FastAPI's detail string", () => {
-    expect(parseApiError(413, '{"detail":"pcap too large (max 100 MB)"}')).toBe(
-      "pcap too large (max 100 MB)",
-    );
-  });
+const upload = () => uploadPcap(new File(["x"], "a.pcap"));
 
-  it("falls back to the HTTP status for a non-JSON body", () => {
-    expect(parseApiError(502, "<html>Bad Gateway</html>")).toBe("HTTP 502");
-  });
+function respondWith(body: string, status: number) {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status })));
+}
 
-  it("falls back to the HTTP status when detail is not a string", () => {
-    expect(parseApiError(422, '{"detail":[{"msg":"x"}]}')).toBe("HTTP 422");
-  });
-});
-
-describe("uploadPcap", () => {
+describe("uploadPcap errors", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it("throws FastAPI's detail string", async () => {
+    respondWith('{"detail":"pcap too large (max 100 MB)"}', 413);
+    await expect(upload()).rejects.toThrow("pcap too large (max 100 MB)");
+  });
+
+  it("falls back to the HTTP status for a non-JSON body", async () => {
+    respondWith("<html>Bad Gateway</html>", 502);
+    await expect(upload()).rejects.toThrow(/^HTTP 502$/);
+  });
+
+  it("falls back to the HTTP status when detail is not a string", async () => {
+    respondWith('{"detail":[{"msg":"x"}]}', 422);
+    await expect(upload()).rejects.toThrow(/^HTTP 422$/);
+  });
 
   it("explains a network failure in words", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
-
-    await expect(uploadPcap(new File(["x"], "a.pcap"))).rejects.toThrow(
+    await expect(upload()).rejects.toThrow(
       "Couldn't reach the pcap-viz server. Is it still running?",
     );
   });
+});
 
-  it("throws the server's reason on an error status", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response('{"detail":"failed to parse pcap"}', { status: 400 })),
-    );
+describe("fetchSession errors", () => {
+  afterEach(() => vi.unstubAllGlobals());
 
-    await expect(uploadPcap(new File(["x"], "a.pcap"))).rejects.toThrow("failed to parse pcap");
+  it("throws the server's detail string", async () => {
+    respondWith('{"detail":"session not found"}', 404);
+    await expect(fetchSession("s1")).rejects.toThrow(/^session not found$/);
   });
 });

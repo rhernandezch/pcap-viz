@@ -2,7 +2,7 @@ import type { ParseResponse, ParseResult } from "./types";
 
 export const PCAP_FILE_TYPES = ".pcap,.pcapng,application/vnd.tcpdump.pcap";
 
-export function parseApiError(status: number, bodyText: string): string {
+function parseApiError(status: number, bodyText: string): string {
   try {
     const detail: unknown = JSON.parse(bodyText)?.detail;
     if (typeof detail === "string") return detail;
@@ -27,7 +27,7 @@ export async function uploadPcap(file: File): Promise<ParseResponse> {
 
 export async function fetchSession(sessionId: string): Promise<ParseResult> {
   const resp = await fetch(`/api/session/${sessionId}`);
-  if (!resp.ok) throw new Error(`session fetch failed (${resp.status})`);
+  if (!resp.ok) throw new Error(parseApiError(resp.status, await resp.text()));
   return resp.json();
 }
 
