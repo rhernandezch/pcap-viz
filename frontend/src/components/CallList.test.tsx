@@ -79,6 +79,12 @@ describe("<CallList />", () => {
     expect(props.onQueryChange).toHaveBeenCalledWith("");
   });
 
+  it("pluralizes the match count", () => {
+    renderList({ query: "busy" });
+
+    expect(screen.getByText("1 of 1 call")).toBeInTheDocument();
+  });
+
   it("clears the filter with Escape", () => {
     const props = renderList({ query: "busy" });
 

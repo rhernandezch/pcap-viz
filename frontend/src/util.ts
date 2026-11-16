@@ -18,30 +18,51 @@ export function formatDuration(seconds: number): string {
   return `${m}m${s.toString().padStart(2, "0")}s`;
 }
 
-export type CallTone = "ok" | "active" | "warn" | "error" | "neutral";
+type CallTone = "ok" | "active" | "warn" | "error" | "neutral";
 
-export interface CallState {
+interface CallState {
   label: string;
   tone: CallTone;
   title: string;
 }
 
+const AUTH_CHALLENGES = [401, 407];
+const callStates = new WeakMap<Call, CallState>();
+
+// Parsed calls never change, so each call's state is computed once.
 export function callStateOf(call: Call): CallState {
-  const invite = call.messages.find((m) => m.method === "INVITE");
-  if (!invite) {
-    const request = call.messages.find((m) => m.method);
-    const last = [...call.messages].reverse().find((m) => m.status_code !== null);
+  let state = callStates.get(call);
+  if (!state) {
+    state = deriveCallState(call);
+    callStates.set(call, state);
+  }
+  return state;
+}
+
+function deriveCallState(call: Call): CallState {
+  const invites = call.messages.filter((m) => m.method === "INVITE");
+  if (invites.length === 0) {
+    const request = call.messages.find((m): m is SipMessage & { method: string } => m.method !== null);
+    const last = [...call.messages]
+      .reverse()
+      .find((m): m is SipMessage & { status_code: number } => m.status_code !== null);
     if (!request) return { label: "—", tone: "neutral", title: "" };
-    if (!last) return { label: request.method!, tone: "neutral", title: "" };
-    const code = last.status_code!;
+    if (!last) return { label: request.method, tone: "neutral", title: "" };
+    const code = last.status_code;
     return {
       label: `${request.method} ${code}`,
-      tone: code < 300 ? "ok" : "error",
+      tone: code < 200 ? "neutral" : code < 300 ? "ok" : "error",
       title: last.status_line ?? "",
     };
   }
-  // Only the first INVITE's final response decides; re-INVITE answers don't.
-  const final = call.messages.find((m) => (m.status_code ?? 0) >= 200 && m.cseq === invite.cseq);
+  const finalFor = (invite: SipMessage) =>
+    call.messages.find((m) => (m.status_code ?? 0) >= 200 && m.cseq === invite.cseq);
+  // A 401/407 challenge creates no dialog, so the next INVITE is the
+  // authenticated retry; later INVITEs after an answer are re-INVITEs.
+  let final = finalFor(invites[0]);
+  for (let i = 1; i < invites.length && AUTH_CHALLENGES.includes(final?.status_code ?? 0); i++) {
+    final = finalFor(invites[i]);
+  }
   const title = final?.status_line ?? "";
   const code = final?.status_code ?? null;
   if (code !== null && code < 300) {

@@ -1,6 +1,6 @@
 import type { Ref } from "react";
 import type { Call } from "../types";
-import { callStateOf, formatClock, formatDuration, shortUri } from "../util";
+import { callStateOf, formatClock, formatDuration, plural, shortUri } from "../util";
 
 interface Props {
   calls: Call[];
@@ -37,7 +37,7 @@ export function CallList({
         />
         {query.trim() && (
           <span className="call-filter-count">
-            {calls.length} of {totalCount} calls
+            {calls.length} of {plural(totalCount, "call")}
           </span>
         )}
       </div>

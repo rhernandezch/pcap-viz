@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react";
 import type { Call } from "../types";
 
 interface Options {
+  // ←/→ move through the visible (filtered) calls; ↑/↓ act on the selected
+  // call even when the filter hides it, because the ladder still shows it.
   calls: Call[];
+  allCalls: Call[];
   selectedCallId: string | null;
   selectedMessageIndex: number | null;
   onSelectCall: (callId: string) => void;
@@ -36,15 +39,16 @@ export function useKeyboardNav(options: Options): void {
         e.preventDefault();
         return;
       }
-      if (optionsRef.current.paused || calls.length === 0) return;
+      if (optionsRef.current.paused) return;
       if (e.key === "/") {
         optionsRef.current.onFocusFilter();
         e.preventDefault();
         return;
       }
+      if (calls.length === 0 && e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
 
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        const call = calls.find((c) => c.call_id === selectedCallId);
+        const call = optionsRef.current.allCalls.find((c) => c.call_id === selectedCallId);
         if (!call || call.messages.length === 0) return;
         const pos = call.messages.findIndex((m) => m.index === selectedMessageIndex);
         const down = e.key === "ArrowDown";

@@ -170,6 +170,33 @@ describe("<App />", () => {
     expect(screen.getByText("INVITE sip:dave@example.com SIP/2.0")).toBeInTheDocument();
   });
 
+  it("keeps ArrowDown working on the shown call when the filter hides it", async () => {
+    await renderPreloaded(
+      result("a.pcap", [
+        call("c1", "INVITE sip:bob@example.com SIP/2.0"),
+        call("c2", "INVITE sip:carol@example.com SIP/2.0"),
+      ]),
+    );
+    fireEvent.change(screen.getByRole("searchbox", { name: "Filter calls" }), {
+      target: { value: "c2" },
+    });
+
+    fireEvent.keyDown(document.body, { key: "ArrowDown" });
+
+    expect(screen.getByText("INVITE sip:bob@example.com SIP/2.0")).toBeInTheDocument();
+  });
+
+  it("focuses the call filter with / even when nothing matches", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+    const filter = screen.getByRole("searchbox", { name: "Filter calls" });
+    fireEvent.change(filter, { target: { value: "zzz" } });
+    filter.blur();
+
+    fireEvent.keyDown(document.body, { key: "/" });
+
+    expect(filter).toHaveFocus();
+  });
+
   it("focuses the call filter with /", async () => {
     await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
 

@@ -72,13 +72,16 @@ export function App() {
   const windowDragging = useWindowFileDrop(handleFile);
 
   const active = tabs[activeIdx] ?? null;
+  const allCalls = active?.result.calls;
+  const callFilter = active?.callFilter ?? "";
   const visibleCalls = useMemo(
-    () => (active ? filterCalls(active.result.calls, active.callFilter) : []),
-    [active],
+    () => (allCalls ? filterCalls(allCalls, callFilter) : []),
+    [allCalls, callFilter],
   );
 
   useKeyboardNav({
     calls: visibleCalls,
+    allCalls: allCalls ?? [],
     selectedCallId: active?.selectedCallId ?? null,
     selectedMessageIndex: active?.selectedMessageIndex ?? null,
     onSelectCall: (callId) => updateActive({ selectedCallId: callId, selectedMessageIndex: null }),
@@ -206,7 +209,7 @@ export function App() {
         >
           <Panel
             id="calls"
-            className="panel"
+            className="panel panel-calls"
             defaultSize="20%"
             minSize={200}
             collapsible

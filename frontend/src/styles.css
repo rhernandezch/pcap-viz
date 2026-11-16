@@ -22,6 +22,7 @@
   --arrow-3xx: light-dark(#9a6700, #e3b341);
   --arrow-4xx: light-dark(#bc4c00, #ffa657);
   --arrow-5xx: light-dark(#cf222e, #ff7b72);
+  --panel-header-height: 33px;
   --mono: "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
 }
 :root[data-theme="light"] {
@@ -156,6 +157,8 @@ button:hover {
   height: 100%;
   background: var(--bg);
   overflow: auto;
+}
+.panel-calls {
   overflow-x: hidden;
 }
 .panel-detail {
@@ -174,6 +177,8 @@ button:hover {
 }
 
 .panel-header {
+  height: var(--panel-header-height);
+  box-sizing: border-box;
   position: sticky;
   top: 0;
   background: var(--bg-alt);
@@ -307,7 +312,7 @@ button:hover {
 
 .call-filter {
   position: sticky;
-  top: 33px;
+  top: var(--panel-header-height);
   z-index: 1;
   display: flex;
   align-items: center;

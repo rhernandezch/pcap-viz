@@ -107,6 +107,15 @@ describe("callStateOf", () => {
     expect(callStateOf(call([invite(), resp(100, "1 INVITE", "Trying")]))).toMatchObject({ label: "Unanswered", tone: "neutral" });
   });
 
+  it("judges a credential-challenged call by the retried INVITE", () => {
+    const c = call([invite(), resp(407, "1 INVITE", "Proxy Authentication Required"), msg({ method: "ACK", cseq: "1 ACK" }), invite("2 INVITE"), resp(200, "2 INVITE", "OK")]);
+    expect(callStateOf(c)).toMatchObject({ label: "In call", tone: "active" });
+  });
+
+  it("gives a non-INVITE dialog with only a provisional reply a neutral tone", () => {
+    expect(callStateOf(call([msg({ method: "SUBSCRIBE", cseq: "1 SUBSCRIBE" }), resp(100, "1 SUBSCRIBE", "Trying")]))).toMatchObject({ label: "SUBSCRIBE 100", tone: "neutral" });
+  });
+
   it("ignores re-INVITE responses", () => {
     const c = call([invite(), resp(200), invite("2 INVITE"), resp(491, "2 INVITE"), msg({ method: "BYE", cseq: "3 BYE" })]);
     expect(callStateOf(c).label).toBe("Completed");
