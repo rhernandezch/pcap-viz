@@ -355,10 +355,39 @@ button:hover {
 }
 
 /* Ladder */
+.ladder-view {
+  display: flex;
+  height: 100%;
+}
 .ladder-wrap {
+  flex: 1;
+  min-width: 0;
   padding: 0 16px 16px;
   overflow: auto;
   height: 100%;
+}
+.minimap {
+  flex: none;
+  width: 40px;
+  height: 100%;
+  border-left: 1px solid var(--border);
+  background: var(--bg-alt);
+  cursor: pointer;
+  touch-action: none;
+}
+.minimap .tick {
+  stroke: var(--arrow, var(--text-dim));
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.minimap .tick.selected {
+  stroke-width: 4;
+}
+.minimap .viewport {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 .lane-header {
   position: sticky;
@@ -421,13 +450,13 @@ button:hover {
   stroke: var(--border-strong);
   stroke-width: 1;
 }
-/* One class-to-color map for ladder arrows and legend swatches. */
-:is(.arrow-line, .legend-swatch).request { --arrow: var(--arrow-request); }
-:is(.arrow-line, .legend-swatch).response-1xx { --arrow: var(--arrow-1xx); }
-:is(.arrow-line, .legend-swatch).response-2xx { --arrow: var(--arrow-2xx); }
-:is(.arrow-line, .legend-swatch).response-3xx { --arrow: var(--arrow-3xx); }
-:is(.arrow-line, .legend-swatch).response-4xx { --arrow: var(--arrow-4xx); }
-:is(.arrow-line, .legend-swatch):is(.response-5xx, .response-6xx) { --arrow: var(--arrow-5xx); }
+/* One class-to-color map for ladder arrows, legend swatches and minimap ticks. */
+:is(.arrow-line, .legend-swatch, .tick).request { --arrow: var(--arrow-request); }
+:is(.arrow-line, .legend-swatch, .tick).response-1xx { --arrow: var(--arrow-1xx); }
+:is(.arrow-line, .legend-swatch, .tick).response-2xx { --arrow: var(--arrow-2xx); }
+:is(.arrow-line, .legend-swatch, .tick).response-3xx { --arrow: var(--arrow-3xx); }
+:is(.arrow-line, .legend-swatch, .tick).response-4xx { --arrow: var(--arrow-4xx); }
+:is(.arrow-line, .legend-swatch, .tick):is(.response-5xx, .response-6xx) { --arrow: var(--arrow-5xx); }
 
 .ladder .arrow-line {
   stroke: var(--arrow, var(--text-dim));

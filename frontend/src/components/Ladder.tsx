@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useElementWidth } from "../hooks/useElementWidth";
 import { laneLabel, normalizeLaneName } from "../laneNames";
+import { Minimap } from "./Minimap";
 import type { Call, SipMessage } from "../types";
 import { arrowClass, formatDelta, formatOffset, labelOf } from "../util";
 
@@ -43,6 +44,8 @@ function laneSpacing(paneWidth: number | null, laneCount: number): number {
 export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const laneHeaderRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState({ top: 0, height: 0 });
   const rowRefs = useRef(new Map<number, SVGGElement>());
   const paneWidth = useElementWidth(wrapRef);
 
@@ -67,6 +70,33 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
     const height = cursor + BOTTOM_PAD;
     return { laneX, width, height, rows };
   }, [call, paneWidth]);
+
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const update = () => setView({ top: wrap.scrollTop, height: wrap.clientHeight });
+    update();
+    wrap.addEventListener("scroll", update, { passive: true });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(wrap);
+    return () => {
+      wrap.removeEventListener("scroll", update);
+      observer?.disconnect();
+    };
+  }, [call]);
+
+  // The sticky lane header covers the top of the pane, so rows under it don't count.
+  const visibleRange = useMemo(() => {
+    if (!call || !layout || view.height === 0) return null;
+    const top = view.top;
+    const bottom = top + view.height - (laneHeaderRef.current?.offsetHeight ?? 0);
+    const visible = call.messages.filter((_, i) => {
+      const row = layout.rows[i];
+      return row.y + row.height > top && row.y < bottom;
+    });
+    if (visible.length === 0) return null;
+    return { start: visible[0].timestamp, end: visible[visible.length - 1].timestamp };
+  }, [call, layout, view]);
 
   // Keep the selected row visible when it moves via keyboard, and keep focus
   // on it while a row has focus.
@@ -100,61 +130,69 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
   const endpointName = (ep: string) => aliases[ep] ?? ep;
 
   return (
-    <div className="ladder-wrap" ref={wrapRef}>
-      <div className="lane-header" style={{ width }}>
-        {call.endpoints.map((ep) => (
-          <LaneHead
-            key={ep}
-            endpoint={ep}
-            name={laneLabel(aliases, call, ep)}
-            x={laneX[ep]}
-            onRename={onRename}
-          />
-        ))}
-      </div>
-      <div className="ladder">
-        <svg ref={svgRef} width={width} height={height} role="group" aria-label="SIP ladder">
+    <div className="ladder-view">
+      <div className="ladder-wrap" ref={wrapRef}>
+        <div className="lane-header" ref={laneHeaderRef} style={{ width }}>
           {call.endpoints.map((ep) => (
-            <line
+            <LaneHead
               key={ep}
-              className="lane-line"
-              x1={laneX[ep]}
-              x2={laneX[ep]}
-              y1={TOP_MARGIN - 18}
-              y2={height - 8}
+              endpoint={ep}
+              name={laneLabel(aliases, call, ep)}
+              x={laneX[ep]}
+              onRename={onRename}
             />
           ))}
-
-          {call.messages.map((m, i) => {
-            const row = rows[i];
-            const x1 = laneX[m.src];
-            const x2 = laneX[m.dst];
-            if (x1 === undefined || x2 === undefined) return null;
-            const offset = formatOffset(m.timestamp - t0);
-            return (
-              <Arrow
-                key={m.index}
-                rowRef={(el) => {
-                  if (el) rowRefs.current.set(m.index, el);
-                  else rowRefs.current.delete(m.index);
-                }}
-                message={m}
-                x1={x1}
-                x2={x2}
-                y={row.y}
-                rowHeight={row.height}
-                width={width}
-                offset={offset}
-                delta={i > 0 ? formatDelta(m.timestamp - call.messages[i - 1].timestamp) : null}
-                label={`${labelOf(m)}, ${endpointName(m.src)} to ${endpointName(m.dst)}, ${offset}`}
-                selected={selectedIndex === m.index}
-                tabbable={tabStop === m.index}
-                onSelect={() => onSelect(m.index)}
+        </div>
+        <div className="ladder">
+          <svg ref={svgRef} width={width} height={height} role="group" aria-label="SIP ladder">
+            {call.endpoints.map((ep) => (
+              <line
+                key={ep}
+                className="lane-line"
+                x1={laneX[ep]}
+                x2={laneX[ep]}
+                y1={TOP_MARGIN - 18}
+                y2={height - 8}
               />
-            );
-          })}
-        </svg>
+            ))}
+
+            {call.messages.map((m, i) => {
+              const row = rows[i];
+              const x1 = laneX[m.src];
+              const x2 = laneX[m.dst];
+              if (x1 === undefined || x2 === undefined) return null;
+              const offset = formatOffset(m.timestamp - t0);
+              return (
+                <Arrow
+                  key={m.index}
+                  rowRef={(el) => {
+                    if (el) rowRefs.current.set(m.index, el);
+                    else rowRefs.current.delete(m.index);
+                  }}
+                  message={m}
+                  x1={x1}
+                  x2={x2}
+                  y={row.y}
+                  rowHeight={row.height}
+                  width={width}
+                  offset={offset}
+                  delta={i > 0 ? formatDelta(m.timestamp - call.messages[i - 1].timestamp) : null}
+                  label={`${labelOf(m)}, ${endpointName(m.src)} to ${endpointName(m.dst)}, ${offset}`}
+                  selected={selectedIndex === m.index}
+                  tabbable={tabStop === m.index}
+                  onSelect={() => onSelect(m.index)}
+                />
+              );
+            })}
+          </svg>
+        </div>
       </div>
+      <Minimap
+        call={call}
+        visibleRange={visibleRange}
+        selectedIndex={selectedIndex}
+        onJump={onSelect}
+      />
     </div>
   );
 }

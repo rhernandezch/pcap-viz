@@ -272,4 +272,23 @@ describe("<Ladder />", () => {
 
     expect(screen.getByRole("button", { name: /^100 Trying,/ })).toHaveFocus();
   });
+
+  it("shows a minimap that marks the visible rows and selects on click", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <Ladder aliases={{}} onRename={() => {}} call={sampleCall()} selectedIndex={null} onSelect={onSelect} />,
+    );
+    const wrap = container.querySelector(".ladder-wrap")!;
+    // 100 px shows the first two 56 px rows (they start 28 px down).
+    Object.defineProperty(wrap, "clientHeight", { value: 100 });
+    fireEvent.scroll(wrap);
+
+    const viewport = container.querySelector("svg.minimap rect.viewport")!;
+    expect([viewport.getAttribute("y"), viewport.getAttribute("height")]).toEqual(["0", "200"]);
+
+    const minimap = container.querySelector("svg.minimap")!;
+    vi.spyOn(minimap, "getBoundingClientRect").mockReturnValue({ top: 0, height: 1012 } as DOMRect);
+    fireEvent.pointerDown(minimap, { clientY: 1006 });
+    expect(onSelect).toHaveBeenCalledWith(2);
+  });
 });
