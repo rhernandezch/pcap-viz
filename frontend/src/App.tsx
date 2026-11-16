@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import { CallList } from "./components/CallList";
 import { DropZone } from "./components/DropZone";
@@ -14,7 +14,7 @@ import { fetchPreloadSessionId, fetchSession, uploadPcap } from "./api";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { useWindowFileDrop } from "./hooks/useWindowFileDrop";
 import { safeStorage } from "./storage";
-import { plural } from "./util";
+import { filterCalls, plural } from "./util";
 import type { ParseResult, SipMessage } from "./types";
 
 const LAYOUT_ID = "pcap-viz:layout";
@@ -25,6 +25,7 @@ interface Tab {
   // selected-call-id and selected-message-index remembered per tab
   selectedCallId: string | null;
   selectedMessageIndex: number | null;
+  callFilter: string;
 }
 
 const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -37,6 +38,7 @@ export function App() {
   const [preloading, setPreloading] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const openButtonRef = useRef<HTMLButtonElement>(null);
+  const filterRef = useRef<HTMLInputElement>(null);
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: LAYOUT_ID,
     storage: safeStorage,
@@ -70,14 +72,22 @@ export function App() {
   const windowDragging = useWindowFileDrop(handleFile);
 
   const active = tabs[activeIdx] ?? null;
+  const allCalls = active?.result.calls;
+  const callFilter = active?.callFilter ?? "";
+  const visibleCalls = useMemo(
+    () => (allCalls ? filterCalls(allCalls, callFilter) : []),
+    [allCalls, callFilter],
+  );
 
   useKeyboardNav({
-    calls: active?.result.calls ?? [],
+    calls: visibleCalls,
+    allCalls: allCalls ?? [],
     selectedCallId: active?.selectedCallId ?? null,
     selectedMessageIndex: active?.selectedMessageIndex ?? null,
     onSelectCall: (callId) => updateActive({ selectedCallId: callId, selectedMessageIndex: null }),
     onSelectMessage: (idx) => updateActive({ selectedMessageIndex: idx }),
     onToggleHelp: () => setHelpOpen((open) => !open),
+    onFocusFilter: () => filterRef.current?.focus(),
     paused: helpOpen,
   });
 
@@ -199,7 +209,7 @@ export function App() {
         >
           <Panel
             id="calls"
-            className="panel"
+            className="panel panel-calls"
             defaultSize="20%"
             minSize={200}
             collapsible
@@ -208,7 +218,11 @@ export function App() {
           >
             <div className="panel-header">Calls ({active.result.calls.length})</div>
             <CallList
-              calls={active.result.calls}
+              calls={visibleCalls}
+              totalCount={active.result.calls.length}
+              query={active.callFilter}
+              onQueryChange={(callFilter) => updateActive({ callFilter })}
+              filterRef={filterRef}
               selectedCallId={active.selectedCallId}
               onSelect={(call_id) =>
                 updateActive({ selectedCallId: call_id, selectedMessageIndex: null })
@@ -257,5 +271,6 @@ function makeTab(sessionId: string, result: ParseResult): Tab {
     result,
     selectedCallId: result.calls[0]?.call_id ?? null,
     selectedMessageIndex: null,
+    callFilter: "",
   };
 }

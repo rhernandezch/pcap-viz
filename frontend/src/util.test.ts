@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Call, SipMessage } from "./types";
-import { arrowClass, finalStatusOf, formatDuration, labelOf, plural, shortUri } from "./util";
+import { arrowClass, callStateOf, filterCalls, formatDuration, labelOf, plural, shortUri } from "./util";
 
 function msg(overrides: Partial<SipMessage>): SipMessage {
   return {
@@ -76,34 +76,76 @@ describe("formatDuration", () => {
   });
 });
 
-describe("finalStatusOf", () => {
-  it("returns the last status code when the call ended on a response", () => {
-    const c = call([
-      msg({ method: "INVITE" }),
-      msg({ status_code: 200, status_phrase: "OK" }),
-      msg({ method: "ACK" }),
-      msg({ method: "BYE" }),
-      msg({ status_code: 487, status_phrase: "Request Terminated" }),
-    ]);
-    expect(finalStatusOf(c)).toBe("487");
+describe("callStateOf", () => {
+  const invite = (cseq = "1 INVITE") => msg({ method: "INVITE", cseq });
+  const resp = (code: number, cseq = "1 INVITE", phrase = "") =>
+    msg({ status_code: code, cseq, status_phrase: phrase, status_line: `SIP/2.0 ${code} ${phrase}`.trim() });
+
+  it("is Completed when the INVITE got a 2xx and a BYE followed", () => {
+    const c = call([invite(), resp(200, "1 INVITE", "OK"), msg({ method: "ACK", cseq: "1 ACK" }), msg({ method: "BYE", cseq: "2 BYE" }), resp(200, "2 BYE", "OK")]);
+    expect(callStateOf(c)).toEqual({ label: "Completed", tone: "ok", title: "SIP/2.0 200 OK" });
   });
 
-  it("returns BYE when the last message is a BYE with no response after it", () => {
-    const c = call([
-      msg({ method: "INVITE" }),
-      msg({ status_code: 200, status_phrase: "OK" }),
-      msg({ method: "BYE" }),
-    ]);
-    expect(finalStatusOf(c)).toBe("BYE");
+  it("is In call when the INVITE got a 2xx and no BYE was seen", () => {
+    expect(callStateOf(call([invite(), resp(200, "1 INVITE", "OK")])).label).toBe("In call");
   });
 
-  it("returns CANCEL when the last message is a CANCEL", () => {
-    const c = call([msg({ method: "INVITE" }), msg({ method: "CANCEL" })]);
-    expect(finalStatusOf(c)).toBe("CANCEL");
+  it("is Cancelled on a 487 or a CANCEL without a final response", () => {
+    expect(callStateOf(call([invite(), resp(487, "1 INVITE", "Request Terminated")])).label).toBe("Cancelled");
+    expect(callStateOf(call([invite(), msg({ method: "CANCEL", cseq: "1 CANCEL" }), resp(200, "1 CANCEL", "OK")])).tone).toBe("warn");
   });
 
-  it("returns — for empty call", () => {
-    expect(finalStatusOf(call([]))).toBe("—");
+  it("is Redirected <code> on a 3xx", () => {
+    expect(callStateOf(call([invite(), resp(302, "1 INVITE", "Moved Temporarily")]))).toMatchObject({ label: "Redirected 302", tone: "warn" });
+  });
+
+  it("is Rejected <code> on a 4xx to 6xx other than 487", () => {
+    expect(callStateOf(call([invite(), resp(486, "1 INVITE", "Busy Here")]))).toEqual({ label: "Rejected 486", tone: "error", title: "SIP/2.0 486 Busy Here" });
+  });
+
+  it("is Unanswered when the INVITE got no final response", () => {
+    expect(callStateOf(call([invite(), resp(100, "1 INVITE", "Trying")]))).toMatchObject({ label: "Unanswered", tone: "neutral" });
+  });
+
+  it("judges a credential-challenged call by the retried INVITE", () => {
+    const c = call([invite(), resp(407, "1 INVITE", "Proxy Authentication Required"), msg({ method: "ACK", cseq: "1 ACK" }), invite("2 INVITE"), resp(200, "2 INVITE", "OK")]);
+    expect(callStateOf(c)).toMatchObject({ label: "In call", tone: "active" });
+  });
+
+  it("gives a non-INVITE dialog with only a provisional reply a neutral tone", () => {
+    expect(callStateOf(call([msg({ method: "SUBSCRIBE", cseq: "1 SUBSCRIBE" }), resp(100, "1 SUBSCRIBE", "Trying")]))).toMatchObject({ label: "SUBSCRIBE 100", tone: "neutral" });
+  });
+
+  it("ignores re-INVITE responses", () => {
+    const c = call([invite(), resp(200), invite("2 INVITE"), resp(491, "2 INVITE"), msg({ method: "BYE", cseq: "3 BYE" })]);
+    expect(callStateOf(c).label).toBe("Completed");
+  });
+
+  it("names non-INVITE dialogs by method and last status", () => {
+    expect(callStateOf(call([msg({ method: "OPTIONS", cseq: "1 OPTIONS" }), resp(200, "1 OPTIONS", "OK")]))).toMatchObject({ label: "OPTIONS 200", tone: "ok" });
+    expect(callStateOf(call([msg({ method: "REGISTER", cseq: "1 REGISTER" }), resp(401, "1 REGISTER")])).tone).toBe("error");
+    expect(callStateOf(call([msg({ method: "OPTIONS", cseq: "1 OPTIONS" })]))).toMatchObject({ label: "OPTIONS", tone: "neutral" });
+  });
+
+  it("is a dash for a call with no messages", () => {
+    expect(callStateOf(call([]))).toMatchObject({ label: "—", tone: "neutral" });
+  });
+});
+
+describe("filterCalls", () => {
+  const a = { ...call([msg({ method: "OPTIONS", cseq: "1 OPTIONS" })]), call_id: "keepalive@x", from_uri: "<sip:sbc@x>", to_uri: "<sip:bot@x>" };
+  const b = { ...call([msg({ method: "INVITE", cseq: "1 INVITE" }), msg({ status_code: 486, cseq: "1 INVITE" })]), call_id: "busy@x", from_uri: '"Alice" <sip:alice@x>', to_uri: "<sip:Bob@x>", endpoints: ["192.0.2.7:5060"] };
+
+  it("keeps every call for a blank query", () => {
+    expect(filterCalls([a, b], "  ")).toEqual([a, b]);
+  });
+
+  it("matches From, To, Call-ID, endpoints and state, case-insensitively", () => {
+    expect(filterCalls([a, b], "ALICE")).toEqual([b]);
+    expect(filterCalls([a, b], "bob@")).toEqual([b]);
+    expect(filterCalls([a, b], "keepalive")).toEqual([a]);
+    expect(filterCalls([a, b], "192.0.2.7")).toEqual([b]);
+    expect(filterCalls([a, b], "rejected 486")).toEqual([b]);
   });
 });
 
