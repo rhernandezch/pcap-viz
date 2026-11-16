@@ -331,6 +331,7 @@ describe("<Ladder />", () => {
 
     rerender(<Ladder {...props} call={{ ...first, call_id: "c2" }} />);
 
-    expect(container.querySelector("svg.minimap rect.viewport")).not.toBeNull();
+    const viewport = container.querySelector("svg.minimap rect.viewport")!;
+    expect([viewport.getAttribute("y"), viewport.getAttribute("height")]).toEqual(["0", "1000"]);
   });
 });
