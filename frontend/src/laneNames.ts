@@ -25,8 +25,9 @@ function defaultLaneName(call: Call, endpoint: string): string | null {
   return null;
 }
 
-export const normalizeLaneName = (name: string): string =>
-  name.trim().slice(0, MAX_ALIAS_LENGTH);
+export function normalizeLaneName(name: string): string {
+  return name.trim().slice(0, MAX_ALIAS_LENGTH);
+}
 
 export function laneLabel(aliases: Aliases, call: Call, endpoint: string): string {
   return aliases[endpoint] ?? defaultLaneName(call, endpoint) ?? "Unnamed";

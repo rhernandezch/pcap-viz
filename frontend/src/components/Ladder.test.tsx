@@ -183,6 +183,18 @@ describe("<Ladder />", () => {
     expect(onRename).not.toHaveBeenCalled();
   });
 
+  it("saves nothing when a long header-derived name is left unchanged", () => {
+    const onRename = vi.fn();
+    const c = sampleCall();
+    c.messages[0].headers = { "User-Agent": "FreeSWITCH-mod_sofia/1.10.9-release~64bit-extra" };
+    render(<Ladder aliases={{}} onRename={onRename} call={c} selectedIndex={null} onSelect={() => {}} />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Rename lane/ })[0]);
+    fireEvent.blur(screen.getByRole("textbox"));
+
+    expect(onRename).not.toHaveBeenCalled();
+  });
+
   it("saves nothing when a rename only adds surrounding spaces", () => {
     const onRename = vi.fn();
     render(<Ladder aliases={{}} onRename={onRename} call={sampleCall()} selectedIndex={null} onSelect={() => {}} />);

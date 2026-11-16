@@ -182,7 +182,8 @@ function LaneHead({ endpoint, name, x, onRename }: LaneHeadProps) {
   const finish = (commit: boolean) => {
     if (finished.current) return;
     finished.current = true;
-    if (commit && draft !== null && normalizeLaneName(draft) !== name) onRename(endpoint, draft);
+    const changed = draft !== null && normalizeLaneName(draft) !== normalizeLaneName(name);
+    if (commit && changed) onRename(endpoint, draft);
     setDraft(null);
   };
 
