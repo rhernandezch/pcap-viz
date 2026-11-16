@@ -18,16 +18,55 @@ export function formatDuration(seconds: number): string {
   return `${m}m${s.toString().padStart(2, "0")}s`;
 }
 
-export function finalStatusOf(call: Call): string {
-  for (let i = call.messages.length - 1; i >= 0; i--) {
-    const m = call.messages[i];
-    if (m.status_code !== null) {
-      return `${m.status_code}`;
-    }
-    if (m.method === "BYE") return "BYE";
-    if (m.method === "CANCEL") return "CANCEL";
+export type CallTone = "ok" | "active" | "warn" | "error" | "neutral";
+
+export interface CallState {
+  label: string;
+  tone: CallTone;
+  title: string;
+}
+
+export function callStateOf(call: Call): CallState {
+  const invite = call.messages.find((m) => m.method === "INVITE");
+  if (!invite) {
+    const request = call.messages.find((m) => m.method);
+    const last = [...call.messages].reverse().find((m) => m.status_code !== null);
+    if (!request) return { label: "—", tone: "neutral", title: "" };
+    if (!last) return { label: request.method!, tone: "neutral", title: "" };
+    const code = last.status_code!;
+    return {
+      label: `${request.method} ${code}`,
+      tone: code < 300 ? "ok" : "error",
+      title: last.status_line ?? "",
+    };
   }
-  return "—";
+  // Only the first INVITE's final response decides; re-INVITE answers don't.
+  const final = call.messages.find((m) => (m.status_code ?? 0) >= 200 && m.cseq === invite.cseq);
+  const title = final?.status_line ?? "";
+  const code = final?.status_code ?? null;
+  if (code !== null && code < 300) {
+    const ended = call.messages.some((m) => m.method === "BYE");
+    return ended ? { label: "Completed", tone: "ok", title } : { label: "In call", tone: "active", title };
+  }
+  if (code === 487 || (code === null && call.messages.some((m) => m.method === "CANCEL"))) {
+    return { label: "Cancelled", tone: "warn", title };
+  }
+  if (code !== null && code < 400) return { label: `Redirected ${code}`, tone: "warn", title };
+  if (code !== null) return { label: `Rejected ${code}`, tone: "error", title };
+  return { label: "Unanswered", tone: "neutral", title };
+}
+
+export function filterCalls(calls: Call[], query: string): Call[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return calls;
+  return calls.filter((c) =>
+    [shortUri(c.from_uri), shortUri(c.to_uri), c.call_id, ...c.endpoints, callStateOf(c).label]
+      .some((field) => field.toLowerCase().includes(q)),
+  );
+}
+
+export function formatClock(epochSeconds: number): string {
+  return new Date(epochSeconds * 1000).toLocaleTimeString("en-GB", { timeZone: "UTC", hour12: false });
 }
 
 export function labelOf(m: SipMessage): string {
