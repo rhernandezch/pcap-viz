@@ -25,6 +25,9 @@ function defaultLaneName(call: Call, endpoint: string): string | null {
   return null;
 }
 
+export const normalizeLaneName = (name: string): string =>
+  name.trim().slice(0, MAX_ALIAS_LENGTH);
+
 export function laneLabel(aliases: Aliases, call: Call, endpoint: string): string {
   return aliases[endpoint] ?? defaultLaneName(call, endpoint) ?? "Unnamed";
 }
@@ -33,8 +36,8 @@ export function useLaneAliases(): [Aliases, (endpoint: string, name: string) => 
   const [aliases, setAliases] = useState(() => readStored(STORAGE_KEY, {}, isAliases));
   const rename = (endpoint: string, name: string) => {
     const next = { ...aliases };
-    const trimmed = name.trim().slice(0, MAX_ALIAS_LENGTH);
-    if (trimmed) next[endpoint] = trimmed;
+    const normalized = normalizeLaneName(name);
+    if (normalized) next[endpoint] = normalized;
     else delete next[endpoint];
     setAliases(next);
     writeStored(STORAGE_KEY, next);

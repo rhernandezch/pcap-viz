@@ -179,6 +179,14 @@ describe("<Ladder />", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: /Rename lane/ })[0]);
     fireEvent.blur(screen.getByRole("textbox"));
+
+    expect(onRename).not.toHaveBeenCalled();
+  });
+
+  it("saves nothing when a rename only adds surrounding spaces", () => {
+    const onRename = vi.fn();
+    render(<Ladder aliases={{}} onRename={onRename} call={sampleCall()} selectedIndex={null} onSelect={() => {}} />);
+
     fireEvent.click(screen.getAllByRole("button", { name: /Rename lane/ })[0]);
     fireEvent.change(screen.getByRole("textbox"), { target: { value: " Unnamed " } });
     fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });

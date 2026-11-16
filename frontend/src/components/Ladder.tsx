@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useElementWidth } from "../hooks/useElementWidth";
-import { laneLabel } from "../laneNames";
+import { laneLabel, normalizeLaneName } from "../laneNames";
 import type { Call, SipMessage } from "../types";
 import { arrowClass, formatDelta, formatOffset, labelOf } from "../util";
 
@@ -182,7 +182,7 @@ function LaneHead({ endpoint, name, x, onRename }: LaneHeadProps) {
   const finish = (commit: boolean) => {
     if (finished.current) return;
     finished.current = true;
-    if (commit && draft !== null && draft.trim() !== name) onRename(endpoint, draft);
+    if (commit && draft !== null && normalizeLaneName(draft) !== name) onRename(endpoint, draft);
     setDraft(null);
   };
 
