@@ -8,3 +8,14 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     disconnect() {}
   };
 }
+
+// jsdom has no PointerEvent; without it fireEvent.pointer* drops clientX/Y.
+if (typeof globalThis.PointerEvent === "undefined") {
+  globalThis.PointerEvent = class extends MouseEvent {
+    readonly pointerId: number;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 1;
+    }
+  } as typeof PointerEvent;
+}

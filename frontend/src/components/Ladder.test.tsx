@@ -272,4 +272,66 @@ describe("<Ladder />", () => {
 
     expect(screen.getByRole("button", { name: /^100 Trying,/ })).toHaveFocus();
   });
+
+  it("shows a minimap that marks the visible rows and selects on click", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <Ladder aliases={{}} onRename={() => {}} call={sampleCall()} selectedIndex={null} onSelect={onSelect} />,
+    );
+    const wrap = container.querySelector(".ladder-wrap")!;
+    // 100 px shows the first two 56 px rows (they start 28 px down).
+    Object.defineProperty(wrap, "clientHeight", { value: 100 });
+    fireEvent.scroll(wrap);
+
+    const viewport = container.querySelector("svg.minimap rect.viewport")!;
+    expect([viewport.getAttribute("y"), viewport.getAttribute("height")]).toEqual(["0", "200"]);
+
+    const minimap = container.querySelector("svg.minimap")!;
+    vi.spyOn(minimap, "getBoundingClientRect").mockReturnValue({ top: 0, height: 1012 } as DOMRect);
+    fireEvent.pointerDown(minimap, { clientY: 1006 });
+    expect(onSelect).toHaveBeenCalledWith(2);
+  });
+
+  it("leaves rows scrolled above the pane out of the minimap's visible span", () => {
+    const { container } = render(
+      <Ladder aliases={{}} onRename={() => {}} call={sampleCall()} selectedIndex={null} onSelect={() => {}} />,
+    );
+    const wrap = container.querySelector(".ladder-wrap")!;
+    // Scrolled past the first 56 px row (rows start 28 px down); 100 px tall.
+    Object.defineProperty(wrap, "scrollTop", { value: 84 });
+    Object.defineProperty(wrap, "clientHeight", { value: 100 });
+    fireEvent.scroll(wrap);
+
+    const viewport = container.querySelector("svg.minimap rect.viewport")!;
+    expect([viewport.getAttribute("y"), viewport.getAttribute("height")]).toEqual(["200", "800"]);
+  });
+
+  it("recomputes the minimap span when switching to a shorter call", () => {
+    const long = sampleCall();
+    const props = { aliases: {}, onRename: () => {}, selectedIndex: null, onSelect: () => {} };
+    const { container, rerender } = render(<Ladder {...props} call={long} />);
+    const wrap = container.querySelector(".ladder-wrap")!;
+    Object.defineProperty(wrap, "clientHeight", { value: 1000 });
+    fireEvent.scroll(wrap);
+
+    const short = { ...long, messages: long.messages.slice(0, 2), ended_at: 0.1, message_count: 2 };
+    rerender(<Ladder {...props} call={short} />);
+
+    const viewport = container.querySelector("svg.minimap rect.viewport")!;
+    expect([viewport.getAttribute("y"), viewport.getAttribute("height")]).toEqual(["0", "1000"]);
+  });
+
+  it("keeps the minimap span when switching to a call with the same visible rows", () => {
+    const first = sampleCall();
+    const props = { aliases: {}, onRename: () => {}, selectedIndex: null, onSelect: () => {} };
+    const { container, rerender } = render(<Ladder {...props} call={first} />);
+    const wrap = container.querySelector(".ladder-wrap")!;
+    Object.defineProperty(wrap, "clientHeight", { value: 1000 });
+    fireEvent.scroll(wrap);
+
+    rerender(<Ladder {...props} call={{ ...first, call_id: "c2" }} />);
+
+    const viewport = container.querySelector("svg.minimap rect.viewport")!;
+    expect([viewport.getAttribute("y"), viewport.getAttribute("height")]).toEqual(["0", "1000"]);
+  });
 });
