@@ -9,16 +9,18 @@ export function shortUri(uri: string): string {
   return sip.split(";")[0];
 }
 
+const SECONDS_PER_MINUTE = 60;
+
 // Each unit is chosen after rounding, so 0.9996 s reads "1.0s", not "1000ms".
 export function formatDuration(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return "—";
   const ms = Math.round(seconds * 1000);
   if (ms < 1000) return `${ms}ms`;
   const tenths = Math.round(seconds * 10);
-  if (tenths < 600) return `${(tenths / 10).toFixed(1)}s`;
+  if (tenths < SECONDS_PER_MINUTE * 10) return `${(tenths / 10).toFixed(1)}s`;
   const total = Math.round(seconds);
-  const m = Math.floor(total / 60);
-  return `${m}m${(total - m * 60).toString().padStart(2, "0")}s`;
+  const m = Math.floor(total / SECONDS_PER_MINUTE);
+  return `${m}m${(total - m * SECONDS_PER_MINUTE).toString().padStart(2, "0")}s`;
 }
 
 type CallTone = "ok" | "active" | "warn" | "error" | "neutral";

@@ -26,7 +26,7 @@ export function sipMessage(overrides: Partial<SipMessage> = {}): SipMessage {
 
 export function sipCall(messages: SipMessage[], overrides: Partial<Call> = {}): Call {
   return {
-    call_id: messages[0]?.call_id ?? "c1",
+    call_id: messages[0]?.call_id ?? sipMessage().call_id,
     endpoints: [...new Set(messages.flatMap((m) => [m.src, m.dst]))],
     started_at: messages[0]?.timestamp ?? 0,
     ended_at: messages[messages.length - 1]?.timestamp ?? 0,
