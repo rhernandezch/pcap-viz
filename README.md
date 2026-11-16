@@ -63,6 +63,13 @@ Press `?` in the app to see this list.
 | `?`                  | Show keyboard shortcuts        |
 | `Esc`                | Close the shortcuts dialog     |
 
+## Lane names
+
+Each ladder lane shows a name above its `ip:port`: the name you gave it, else the
+User-Agent or Server header of the first message it sent. Click a name to rename
+the lane (Enter saves, Escape cancels, an empty name restores the default). Names
+are saved in the browser per `ip:port`, so they carry across captures and reloads.
+
 ## Configuration
 
 The server reads these environment variables at startup (defaults in parens):
