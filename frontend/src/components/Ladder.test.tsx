@@ -305,4 +305,19 @@ describe("<Ladder />", () => {
     const viewport = container.querySelector("svg.minimap rect.viewport")!;
     expect([viewport.getAttribute("y"), viewport.getAttribute("height")]).toEqual(["200", "800"]);
   });
+
+  it("recomputes the minimap span when switching to a shorter call", () => {
+    const long = sampleCall();
+    const props = { aliases: {}, onRename: () => {}, selectedIndex: null, onSelect: () => {} };
+    const { container, rerender } = render(<Ladder {...props} call={long} />);
+    const wrap = container.querySelector(".ladder-wrap")!;
+    Object.defineProperty(wrap, "clientHeight", { value: 1000 });
+    fireEvent.scroll(wrap);
+
+    const short = { ...long, messages: long.messages.slice(0, 2), ended_at: 0.1, message_count: 2 };
+    rerender(<Ladder {...props} call={short} />);
+
+    const viewport = container.querySelector("svg.minimap rect.viewport")!;
+    expect([viewport.getAttribute("y"), viewport.getAttribute("height")]).toEqual(["0", "1000"]);
+  });
 });

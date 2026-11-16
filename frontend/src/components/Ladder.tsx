@@ -45,7 +45,11 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const laneHeaderRef = useRef<HTMLDivElement>(null);
-  const [visibleRows, setVisibleRows] = useState<{ first: number; last: number } | null>(null);
+  // Tagged with its call: the ladder stays mounted across calls, and indexes from
+  // the previous call must never be read against the next one.
+  const [visibleRows, setVisibleRows] = useState<{ call: Call; first: number; last: number } | null>(
+    null,
+  );
   const rowRefs = useRef(new Map<number, SVGGElement>());
   const paneWidth = useElementWidth(wrapRef);
 
@@ -75,15 +79,17 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
   // ladder only when they change. The sticky lane header hides the rows under it.
   useEffect(() => {
     const wrap = wrapRef.current;
-    if (!wrap || !layout) return;
+    if (!wrap || !call || !layout) return;
     const update = () => {
       const top = wrap.scrollTop;
       const bottom = top + wrap.clientHeight - (laneHeaderRef.current?.offsetHeight ?? 0);
       const first = layout.rows.findIndex((r) => r.y + r.height > top);
       const last = layout.rows.filter((r) => r.y < bottom).length - 1;
-      const next = wrap.clientHeight > 0 && first >= 0 && last >= first ? { first, last } : null;
+      const next = wrap.clientHeight > 0 && first >= 0 && last >= first ? { call, first, last } : null;
       setVisibleRows((prev) =>
-        prev?.first === next?.first && prev?.last === next?.last ? prev : next,
+        prev?.call === next?.call && prev?.first === next?.first && prev?.last === next?.last
+          ? prev
+          : next,
       );
     };
     update();
@@ -95,10 +101,10 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
       wrap.removeEventListener("scroll", update);
       observer?.disconnect();
     };
-  }, [layout]);
+  }, [call, layout]);
 
   const visibleRange =
-    call && visibleRows
+    call && visibleRows?.call === call
       ? {
           start: call.messages[visibleRows.first].timestamp,
           end: call.messages[visibleRows.last].timestamp,
