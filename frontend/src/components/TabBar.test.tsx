@@ -4,16 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 import { TabBar } from "./TabBar";
 
 const twoTabs = [
-  { id: "s1", label: "a.pcap" },
-  { id: "s2", label: "b.pcap" },
+  { id: "s1", label: "a.pcap", title: "a.pcap" },
+  { id: "s2", label: "b.pcap", title: "b.pcap" },
 ];
-const threeTabs = [...twoTabs, { id: "s3", label: "c.pcap" }];
+const threeTabs = [...twoTabs, { id: "s3", label: "c.pcap", title: "c.pcap" }];
 
 function Harness({
   initial,
   initialActive = 0,
 }: {
-  initial: { id: string; label: string }[];
+  initial: { id: string; label: string; title: string }[];
   initialActive?: number;
 }) {
   const [tabs, setTabs] = useState(initial);

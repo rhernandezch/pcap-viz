@@ -51,6 +51,18 @@ uvicorn pcap_viz.server:app --reload --port 8765
 cd frontend && npm run dev
 ```
 
+## Keyboard shortcuts
+
+Press `?` in the app to see this list.
+
+| Keys                 | Action                         |
+| -------------------- | ------------------------------ |
+| `↑` / `↓`            | Previous / next message        |
+| `←` / `→`            | Previous / next call           |
+| `Delete` / `Backspace` | Close the focused capture tab |
+| `?`                  | Show keyboard shortcuts        |
+| `Esc`                | Close the shortcuts dialog     |
+
 ## Configuration
 
 The server reads these environment variables at startup (defaults in parens):

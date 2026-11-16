@@ -3,6 +3,7 @@ import { useEffect, useRef, type KeyboardEvent, type RefObject } from "react";
 interface TabItem {
   id: string;
   label: string;
+  title: string;
 }
 
 interface Props {
@@ -67,7 +68,7 @@ export function TabBar({ tabs, activeIdx, onSelect, onClose, fallbackFocusRef }:
             aria-selected={i === activeIdx}
             aria-keyshortcuts={CLOSE_KEYS.join(" ")}
             tabIndex={i === activeIdx ? 0 : -1}
-            title={t.label}
+            title={t.title}
             onClick={() => onSelect(i)}
             onKeyDown={(e) => onTabKeyDown(e, i)}
           >
