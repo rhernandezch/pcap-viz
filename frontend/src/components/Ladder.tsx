@@ -3,7 +3,7 @@ import { useElementWidth } from "../hooks/useElementWidth";
 import { laneLabel, normalizeLaneName } from "../laneNames";
 import { Minimap } from "./Minimap";
 import type { Call, SipMessage } from "../types";
-import { arrowClass, formatDelta, formatOffset, labelOf } from "../util";
+import { arrowClass, labelOf, messageTiming } from "../util";
 
 // Wide enough for the offset and delta lines of the time column.
 const LEFT_MARGIN = 110;
@@ -136,7 +136,6 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
   }
 
   const { laneX, width, height, rows } = layout!;
-  const t0 = call.started_at;
   const tabStop = call.messages.some((m) => m.index === selectedIndex)
     ? selectedIndex
     : call.messages[0]?.index;
@@ -174,7 +173,7 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
               const x1 = laneX[m.src];
               const x2 = laneX[m.dst];
               if (x1 === undefined || x2 === undefined) return null;
-              const offset = formatOffset(m.timestamp - t0);
+              const { offset, delta } = messageTiming(call, i);
               return (
                 <Arrow
                   key={m.index}
@@ -189,7 +188,7 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
                   rowHeight={row.height}
                   width={width}
                   offset={offset}
-                  delta={i > 0 ? formatDelta(m.timestamp - call.messages[i - 1].timestamp) : null}
+                  delta={delta}
                   label={`${labelOf(m)}, ${endpointName(m.src)} to ${endpointName(m.dst)}, ${offset}`}
                   selected={selectedIndex === m.index}
                   tabbable={tabStop === m.index}

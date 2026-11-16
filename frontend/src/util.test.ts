@@ -4,9 +4,9 @@ import {
   arrowClass,
   callStateOf,
   filterCalls,
-  formatDelta,
   formatDuration,
-  formatOffset,
+  formatUtc,
+  messageTiming,
   labelOf,
   plural,
   shortUri,
@@ -201,9 +201,29 @@ describe("plural", () => {
   });
 });
 
-describe("formatOffset and formatDelta", () => {
-  it("use milliseconds below one second and two decimals above", () => {
-    expect([0, 0.0999, 1, 125].map(formatOffset)).toEqual(["+0ms", "+100ms", "+1.00s", "+125.00s"]);
-    expect([0, 0.0999, 1, 125].map(formatDelta)).toEqual(["Δ0ms", "Δ100ms", "Δ1.00s", "Δ125.00s"]);
+describe("formatUtc", () => {
+  it("formats epoch seconds as a UTC date and time with milliseconds", () => {
+    expect(formatUtc(1_700_000_000)).toBe("2023-11-14 22:13:20.000 UTC");
+  });
+});
+
+describe("messageTiming", () => {
+  it("gives every message its offset from call start, and all but the first a delta", () => {
+    const c = { ...call([msg({ index: 0, timestamp: 10.1 }), msg({ index: 1, timestamp: 12.8 })]), started_at: 10 };
+    expect([messageTiming(c, 0), messageTiming(c, 1)]).toEqual([
+      { offset: "+100ms", delta: null },
+      { offset: "+2.80s", delta: "Δ2.70s" },
+    ]);
+  });
+
+  it("uses milliseconds below one second and two decimals above", () => {
+    const times = [0, 0.0999, 1, 125];
+    const c = call(times.map((t, index) => msg({ index, timestamp: t })));
+    expect(times.map((_, i) => messageTiming(c, i))).toEqual([
+      { offset: "+0ms", delta: null },
+      { offset: "+100ms", delta: "Δ100ms" },
+      { offset: "+1.00s", delta: "Δ900ms" },
+      { offset: "+125.00s", delta: "Δ124.00s" },
+    ]);
   });
 });

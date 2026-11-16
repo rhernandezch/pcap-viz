@@ -260,7 +260,7 @@ export function App() {
             aria-label="Message"
           >
             <div className="panel-header">Message</div>
-            <MessageDetail message={activeMessage} />
+            <MessageDetail message={activeMessage} call={activeCall} aliases={laneAliases} />
           </Panel>
         </Group>
       )}
