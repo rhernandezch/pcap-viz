@@ -179,6 +179,9 @@ describe("<Ladder />", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: /Rename lane/ })[0]);
     fireEvent.blur(screen.getByRole("textbox"));
+    fireEvent.click(screen.getAllByRole("button", { name: /Rename lane/ })[0]);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: " Unnamed " } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
 
     expect(onRename).not.toHaveBeenCalled();
   });

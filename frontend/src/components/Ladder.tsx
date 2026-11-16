@@ -42,6 +42,7 @@ function laneSpacing(paneWidth: number | null, laneCount: number): number {
 
 export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const rowRefs = useRef(new Map<number, SVGGElement>());
   const paneWidth = useElementWidth(wrapRef);
 
@@ -82,7 +83,7 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
     } else if (row.y + row.height * 2 > visibleBottom) {
       wrap.scrollTop = row.y + row.height * 2 - wrap.clientHeight;
     }
-    if (wrap.querySelector("svg")?.contains(document.activeElement)) {
+    if (svgRef.current?.contains(document.activeElement)) {
       rowRefs.current.get(selectedIndex)?.focus();
     }
   }, [call, layout, selectedIndex]);
@@ -112,7 +113,7 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
         ))}
       </div>
       <div className="ladder">
-        <svg width={width} height={height} role="group" aria-label="SIP ladder">
+        <svg ref={svgRef} width={width} height={height} role="group" aria-label="SIP ladder">
           {call.endpoints.map((ep) => (
             <line
               key={ep}
@@ -181,7 +182,7 @@ function LaneHead({ endpoint, name, x, onRename }: LaneHeadProps) {
   const finish = (commit: boolean) => {
     if (finished.current) return;
     finished.current = true;
-    if (commit && draft !== null && draft !== name) onRename(endpoint, draft);
+    if (commit && draft !== null && draft.trim() !== name) onRename(endpoint, draft);
     setDraft(null);
   };
 
