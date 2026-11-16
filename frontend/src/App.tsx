@@ -232,7 +232,7 @@ export function App() {
             />
           </Panel>
           <Separator className="pane-separator" aria-label="Resize calls panel" />
-          <Panel id="ladder" className="panel" minSize={320}>
+          <Panel id="ladder" className="panel panel-ladder" minSize={320}>
             <div className="panel-header ladder-header">
               <span>
                 {activeCall

@@ -355,16 +355,21 @@ button:hover {
 }
 
 /* Ladder */
+/* The ladder pane is a column so the view fills what its header leaves. */
+.panel-ladder {
+  display: flex;
+  flex-direction: column;
+}
 .ladder-view {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 .ladder-wrap {
   flex: 1;
   min-width: 0;
   padding: 0 16px 16px;
   overflow: auto;
-  height: 100%;
 }
 .minimap {
   flex: none;
@@ -375,12 +380,12 @@ button:hover {
   cursor: pointer;
   touch-action: none;
 }
-.minimap .tick {
+.minimap .minimap-tick {
   stroke: var(--arrow, var(--text-dim));
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
-.minimap .tick.selected {
+.minimap .minimap-tick.selected {
   stroke-width: 4;
 }
 .minimap .viewport {
@@ -437,9 +442,9 @@ button:hover {
 }
 .ladder-empty {
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
-  height: 100%;
   color: var(--text-dim);
   font-size: 13px;
 }
@@ -451,12 +456,12 @@ button:hover {
   stroke-width: 1;
 }
 /* One class-to-color map for ladder arrows, legend swatches and minimap ticks. */
-:is(.arrow-line, .legend-swatch, .tick).request { --arrow: var(--arrow-request); }
-:is(.arrow-line, .legend-swatch, .tick).response-1xx { --arrow: var(--arrow-1xx); }
-:is(.arrow-line, .legend-swatch, .tick).response-2xx { --arrow: var(--arrow-2xx); }
-:is(.arrow-line, .legend-swatch, .tick).response-3xx { --arrow: var(--arrow-3xx); }
-:is(.arrow-line, .legend-swatch, .tick).response-4xx { --arrow: var(--arrow-4xx); }
-:is(.arrow-line, .legend-swatch, .tick):is(.response-5xx, .response-6xx) { --arrow: var(--arrow-5xx); }
+:is(.arrow-line, .legend-swatch, .minimap-tick).request { --arrow: var(--arrow-request); }
+:is(.arrow-line, .legend-swatch, .minimap-tick).response-1xx { --arrow: var(--arrow-1xx); }
+:is(.arrow-line, .legend-swatch, .minimap-tick).response-2xx { --arrow: var(--arrow-2xx); }
+:is(.arrow-line, .legend-swatch, .minimap-tick).response-3xx { --arrow: var(--arrow-3xx); }
+:is(.arrow-line, .legend-swatch, .minimap-tick).response-4xx { --arrow: var(--arrow-4xx); }
+:is(.arrow-line, .legend-swatch, .minimap-tick):is(.response-5xx, .response-6xx) { --arrow: var(--arrow-5xx); }
 
 .ladder .arrow-line {
   stroke: var(--arrow, var(--text-dim));

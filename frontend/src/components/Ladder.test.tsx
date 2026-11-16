@@ -291,4 +291,18 @@ describe("<Ladder />", () => {
     fireEvent.pointerDown(minimap, { clientY: 1006 });
     expect(onSelect).toHaveBeenCalledWith(2);
   });
+
+  it("leaves rows scrolled above the pane out of the minimap's visible span", () => {
+    const { container } = render(
+      <Ladder aliases={{}} onRename={() => {}} call={sampleCall()} selectedIndex={null} onSelect={() => {}} />,
+    );
+    const wrap = container.querySelector(".ladder-wrap")!;
+    // Scrolled past the first 56 px row (rows start 28 px down); 100 px tall.
+    Object.defineProperty(wrap, "scrollTop", { value: 84 });
+    Object.defineProperty(wrap, "clientHeight", { value: 100 });
+    fireEvent.scroll(wrap);
+
+    const viewport = container.querySelector("svg.minimap rect.viewport")!;
+    expect([viewport.getAttribute("y"), viewport.getAttribute("height")]).toEqual(["200", "800"]);
+  });
 });

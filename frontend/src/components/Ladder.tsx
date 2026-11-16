@@ -45,7 +45,7 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const laneHeaderRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState({ top: 0, height: 0 });
+  const [visibleRows, setVisibleRows] = useState<{ first: number; last: number } | null>(null);
   const rowRefs = useRef(new Map<number, SVGGElement>());
   const paneWidth = useElementWidth(wrapRef);
 
@@ -71,32 +71,39 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
     return { laneX, width, height, rows };
   }, [call, paneWidth]);
 
+  // Only the first and last visible rows are state, so scrolling re-renders the
+  // ladder only when they change. The sticky lane header hides the rows under it.
   useEffect(() => {
     const wrap = wrapRef.current;
-    if (!wrap) return;
-    const update = () => setView({ top: wrap.scrollTop, height: wrap.clientHeight });
+    if (!wrap || !layout) return;
+    const update = () => {
+      const top = wrap.scrollTop;
+      const bottom = top + wrap.clientHeight - (laneHeaderRef.current?.offsetHeight ?? 0);
+      const first = layout.rows.findIndex((r) => r.y + r.height > top);
+      const last = layout.rows.filter((r) => r.y < bottom).length - 1;
+      const next = wrap.clientHeight > 0 && first >= 0 && last >= first ? { first, last } : null;
+      setVisibleRows((prev) =>
+        prev?.first === next?.first && prev?.last === next?.last ? prev : next,
+      );
+    };
     update();
     wrap.addEventListener("scroll", update, { passive: true });
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
     observer?.observe(wrap);
+    if (laneHeaderRef.current) observer?.observe(laneHeaderRef.current);
     return () => {
       wrap.removeEventListener("scroll", update);
       observer?.disconnect();
     };
-  }, [call]);
+  }, [layout]);
 
-  // The sticky lane header covers the top of the pane, so rows under it don't count.
-  const visibleRange = useMemo(() => {
-    if (!call || !layout || view.height === 0) return null;
-    const top = view.top;
-    const bottom = top + view.height - (laneHeaderRef.current?.offsetHeight ?? 0);
-    const visible = call.messages.filter((_, i) => {
-      const row = layout.rows[i];
-      return row.y + row.height > top && row.y < bottom;
-    });
-    if (visible.length === 0) return null;
-    return { start: visible[0].timestamp, end: visible[visible.length - 1].timestamp };
-  }, [call, layout, view]);
+  const visibleRange =
+    call && visibleRows
+      ? {
+          start: call.messages[visibleRows.first].timestamp,
+          end: call.messages[visibleRows.last].timestamp,
+        }
+      : null;
 
   // Keep the selected row visible when it moves via keyboard, and keep focus
   // on it while a row has focus.

@@ -23,7 +23,7 @@ const threeMessages = () =>
   call([msg(0, 100), msg(1, 101, { method: null, status_code: 200 }), msg(2, 110)]);
 
 function ticks(container: HTMLElement) {
-  return [...container.querySelectorAll("line.tick")];
+  return [...container.querySelectorAll("line.minimap-tick")];
 }
 
 describe("<Minimap />", () => {
@@ -90,5 +90,35 @@ describe("<Minimap />", () => {
     );
 
     expect(ticks(container).map((t) => t.getAttribute("y1"))).toEqual(["0", "0"]);
+  });
+
+  it("keeps a thin band for a very short visible span", () => {
+    const { container } = render(
+      <Minimap call={threeMessages()} visibleRange={{ start: 101, end: 101.001 }} selectedIndex={null} onJump={() => {}} />,
+    );
+
+    expect(container.querySelector("rect.viewport")!.getAttribute("height")).toBe("4");
+  });
+
+  it("only reacts to the primary button and skips re-selecting the selected message", () => {
+    const onJump = vi.fn();
+    const { container } = render(
+      <Minimap call={threeMessages()} visibleRange={null} selectedIndex={1} onJump={onJump} />,
+    );
+    const svg = container.querySelector("svg")!;
+    vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ top: 0, height: 1012 } as DOMRect);
+
+    fireEvent.pointerDown(svg, { clientY: 1000, button: 2 });
+    fireEvent.pointerDown(svg, { clientY: 506, button: 0 });
+
+    expect(onJump).not.toHaveBeenCalled();
+  });
+
+  it("tells mouse users the strip can be clicked", () => {
+    const { container } = render(
+      <Minimap call={threeMessages()} visibleRange={null} selectedIndex={null} onJump={() => {}} />,
+    );
+
+    expect(container.querySelector("svg title")).toHaveTextContent("Click or drag to jump to a message");
   });
 });

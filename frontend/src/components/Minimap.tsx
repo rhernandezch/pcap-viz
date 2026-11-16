@@ -8,6 +8,8 @@ const SCALE = 1000;
 const PAD = 6;
 const VIEW_HEIGHT = SCALE + 2 * PAD;
 const VIEW_WIDTH = 10;
+// Keeps the visible-span band drawable when its rows are only ms apart.
+const MIN_VIEWPORT_HEIGHT = 4;
 
 interface Props {
   call: Call;
@@ -30,7 +32,7 @@ export function Minimap({ call, visibleRange, selectedIndex, onJump }: Props) {
     const nearest = call.messages.reduce((best, m) =>
       Math.abs(m.timestamp - t) < Math.abs(best.timestamp - t) ? m : best,
     );
-    onJump(nearest.index);
+    if (nearest.index !== selectedIndex) onJump(nearest.index);
   };
 
   return (
@@ -40,6 +42,7 @@ export function Minimap({ call, visibleRange, selectedIndex, onJump }: Props) {
       preserveAspectRatio="none"
       aria-hidden="true"
       onPointerDown={(e) => {
+        if (e.button !== 0) return;
         e.currentTarget.setPointerCapture?.(e.pointerId);
         jumpTo(e);
       }}
@@ -47,19 +50,20 @@ export function Minimap({ call, visibleRange, selectedIndex, onJump }: Props) {
         if (e.buttons === 1) jumpTo(e);
       }}
     >
+      <title>Click or drag to jump to a message</title>
       {visibleRange && (
         <rect
           className="viewport"
           x={0}
           y={yOf(visibleRange.start)}
           width={VIEW_WIDTH}
-          height={yOf(visibleRange.end) - yOf(visibleRange.start)}
+          height={Math.max(MIN_VIEWPORT_HEIGHT, yOf(visibleRange.end) - yOf(visibleRange.start))}
         />
       )}
       {call.messages.map((m) => (
         <line
           key={m.index}
-          className={`tick ${arrowClass(m)}${m.index === selectedIndex ? " selected" : ""}`}
+          className={`minimap-tick ${arrowClass(m)}${m.index === selectedIndex ? " selected" : ""}`}
           x1={0}
           x2={VIEW_WIDTH}
           y1={yOf(m.timestamp)}
