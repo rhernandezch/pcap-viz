@@ -201,19 +201,6 @@ describe("plural", () => {
   });
 });
 
-describe("messageTiming formats", () => {
-  it("use milliseconds below one second and two decimals above", () => {
-    const times = [0, 0.0999, 1, 125];
-    const c = { ...call(times.map((t, index) => msg({ index, timestamp: t }))), started_at: 0 };
-    expect(times.map((_, i) => messageTiming(c, i))).toEqual([
-      { offset: "+0ms", delta: null },
-      { offset: "+100ms", delta: "Δ100ms" },
-      { offset: "+1.00s", delta: "Δ900ms" },
-      { offset: "+125.00s", delta: "Δ124.00s" },
-    ]);
-  });
-});
-
 describe("formatUtc", () => {
   it("formats epoch seconds as a UTC date and time with milliseconds", () => {
     expect(formatUtc(1_700_000_000)).toBe("2023-11-14 22:13:20.000 UTC");
@@ -226,6 +213,17 @@ describe("messageTiming", () => {
     expect([messageTiming(c, 0), messageTiming(c, 1)]).toEqual([
       { offset: "+100ms", delta: null },
       { offset: "+2.80s", delta: "Δ2.70s" },
+    ]);
+  });
+
+  it("uses milliseconds below one second and two decimals above", () => {
+    const times = [0, 0.0999, 1, 125];
+    const c = call(times.map((t, index) => msg({ index, timestamp: t })));
+    expect(times.map((_, i) => messageTiming(c, i))).toEqual([
+      { offset: "+0ms", delta: null },
+      { offset: "+100ms", delta: "Δ100ms" },
+      { offset: "+1.00s", delta: "Δ900ms" },
+      { offset: "+125.00s", delta: "Δ124.00s" },
     ]);
   });
 });
