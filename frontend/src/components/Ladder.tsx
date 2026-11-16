@@ -68,7 +68,7 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
   }, [call, paneWidth]);
 
   // Keep the selected row visible when it moves via keyboard, and keep focus
-  // on it while focus is inside the ladder.
+  // on it while a row has focus.
   useEffect(() => {
     const wrap = wrapRef.current;
     if (!wrap || !call || !layout || selectedIndex === null) return;
@@ -82,7 +82,9 @@ export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Pro
     } else if (row.y + row.height * 2 > visibleBottom) {
       wrap.scrollTop = row.y + row.height * 2 - wrap.clientHeight;
     }
-    if (wrap.contains(document.activeElement)) rowRefs.current.get(selectedIndex)?.focus();
+    if (wrap.querySelector("svg")?.contains(document.activeElement)) {
+      rowRefs.current.get(selectedIndex)?.focus();
+    }
   }, [call, layout, selectedIndex]);
 
   if (!call) {
@@ -165,11 +167,21 @@ interface LaneHeadProps {
 
 function LaneHead({ endpoint, name, x, onRename }: LaneHeadProps) {
   const [draft, setDraft] = useState<string | null>(null);
-  // Escape unmounts the input, which can still fire blur; don't save then.
-  const cancelled = useRef(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  // Removing the input can still fire blur after Enter or Escape finished the edit.
+  const finished = useRef(false);
+  const refocus = useRef(false);
 
-  const save = () => {
-    if (!cancelled.current && draft !== null) onRename(endpoint, draft);
+  useEffect(() => {
+    if (draft !== null || !refocus.current) return;
+    refocus.current = false;
+    buttonRef.current?.focus();
+  }, [draft]);
+
+  const finish = (commit: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    if (commit && draft !== null && draft !== name) onRename(endpoint, draft);
     setDraft(null);
   };
 
@@ -177,11 +189,12 @@ function LaneHead({ endpoint, name, x, onRename }: LaneHeadProps) {
     <div className="lane-head" style={{ left: x }} title={`${name} (${endpoint})`}>
       {draft === null ? (
         <button
+          ref={buttonRef}
           type="button"
           className="lane-name"
           aria-label={`Rename lane ${name} (${endpoint})`}
           onClick={() => {
-            cancelled.current = false;
+            finished.current = false;
             setDraft(name);
           }}
         >
@@ -194,13 +207,11 @@ function LaneHead({ endpoint, name, x, onRename }: LaneHeadProps) {
           value={draft}
           autoFocus
           onChange={(e) => setDraft(e.target.value)}
-          onBlur={save}
+          onBlur={() => finish(true)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") save();
-            if (e.key === "Escape") {
-              cancelled.current = true;
-              setDraft(null);
-            }
+            if (e.key !== "Enter" && e.key !== "Escape") return;
+            refocus.current = true;
+            finish(e.key === "Enter");
           }}
         />
       )}

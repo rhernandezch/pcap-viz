@@ -173,6 +173,30 @@ describe("<Ladder />", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 
+  it("saves nothing when a rename is left without changes", () => {
+    const onRename = vi.fn();
+    render(<Ladder aliases={{}} onRename={onRename} call={sampleCall()} selectedIndex={null} onSelect={() => {}} />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Rename lane/ })[0]);
+    fireEvent.blur(screen.getByRole("textbox"));
+
+    expect(onRename).not.toHaveBeenCalled();
+  });
+
+  it("returns focus to the rename button after Enter or Escape", () => {
+    render(<Ladder aliases={{}} onRename={() => {}} call={sampleCall()} selectedIndex={null} onSelect={() => {}} />);
+    const renameFirst = () => screen.getByRole("button", { name: /Rename lane Unnamed \(10.0.0.1:5060\)/ });
+
+    fireEvent.click(renameFirst());
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+    expect(renameFirst()).toHaveFocus();
+
+    fireEvent.click(renameFirst());
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Voice bot" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(renameFirst()).toHaveFocus();
+  });
+
   it("shows the delta from the previous message on every row but the first", () => {
     const { container } = render(
       <Ladder aliases={{}} onRename={() => {}} call={sampleCall()} selectedIndex={null} onSelect={() => {}} />,
@@ -202,6 +226,17 @@ describe("<Ladder />", () => {
     fireEvent.keyDown(screen.getByRole("button", { name: /^100 Trying,/ }), { key: "Enter" });
 
     expect(onSelect).toHaveBeenCalledWith(1);
+  });
+
+  it("leaves focus on a lane's rename button when the selection moves", () => {
+    const props = { aliases: {}, onRename: () => {}, call: sampleCall(), onSelect: () => {} };
+    const { rerender } = render(<Ladder {...props} selectedIndex={0} />);
+    const rename = screen.getAllByRole("button", { name: /Rename lane/ })[0];
+    rename.focus();
+
+    rerender(<Ladder {...props} selectedIndex={1} />);
+
+    expect(rename).toHaveFocus();
   });
 
   it("moves focus with the selection while focus is in the ladder", () => {

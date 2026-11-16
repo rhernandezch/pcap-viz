@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Call, SipMessage } from "./types";
-import { defaultLaneName, laneLabel, useLaneAliases } from "./laneNames";
+import { laneLabel, useLaneAliases } from "./laneNames";
 
 const A = "10.0.0.1:5060";
 const B = "10.0.0.2:5060";
@@ -21,31 +21,28 @@ function call(messages: SipMessage[]): Call {
   };
 }
 
-describe("defaultLaneName", () => {
+describe("laneLabel", () => {
+  it("prefers the saved alias", () => {
+    const c = call([msg(A, { "User-Agent": "Asterisk PBX" })]);
+    expect(laneLabel({ [A]: "Voice bot" }, c, A)).toBe("Voice bot");
+  });
+
   it("uses the User-Agent of the first message sent by the endpoint", () => {
     const c = call([msg(B, { "User-Agent": "late" }), msg(A, { "User-Agent": "Asterisk PBX" }), msg(A, { "User-Agent": "other" })]);
-    expect(defaultLaneName(c, A)).toBe("Asterisk PBX");
+    expect(laneLabel({}, c, A)).toBe("Asterisk PBX");
   });
 
   it("falls back to the Server header", () => {
-    expect(defaultLaneName(call([msg(A, { Server: "Kamailio" })]), A)).toBe("Kamailio");
+    expect(laneLabel({}, call([msg(A, { Server: "Kamailio" })]), A)).toBe("Kamailio");
   });
 
   it("looks headers up case-insensitively", () => {
-    expect(defaultLaneName(call([msg(A, { "user-agent": "bot" })]), A)).toBe("bot");
+    expect(laneLabel({}, call([msg(A, { "user-agent": "bot" })]), A)).toBe("bot");
   });
 
-  it("returns null when neither header is present", () => {
-    expect(defaultLaneName(call([msg(A, {})]), A)).toBeNull();
-  });
-});
-
-describe("laneLabel", () => {
-  it("prefers the alias, then the default name, then Unnamed", () => {
-    const c = call([msg(A, { "User-Agent": "Asterisk PBX" })]);
-    expect(laneLabel({ [A]: "Voice bot" }, c, A)).toBe("Voice bot");
-    expect(laneLabel({}, c, A)).toBe("Asterisk PBX");
-    expect(laneLabel({}, c, B)).toBe("Unnamed");
+  it("is Unnamed without an alias or a naming header", () => {
+    expect(laneLabel({}, call([msg(A, {})]), A)).toBe("Unnamed");
+    expect(laneLabel({}, call([msg(A, {})]), B)).toBe("Unnamed");
   });
 });
 

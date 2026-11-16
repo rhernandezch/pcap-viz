@@ -14,7 +14,7 @@ const isAliases = (v: unknown): v is Aliases =>
   !Array.isArray(v) &&
   Object.values(v).every((name) => typeof name === "string");
 
-export function defaultLaneName(call: Call, endpoint: string): string | null {
+function defaultLaneName(call: Call, endpoint: string): string | null {
   const first = call.messages.find((m) => m.src === endpoint);
   if (!first) return null;
   const headers = Object.entries(first.headers);

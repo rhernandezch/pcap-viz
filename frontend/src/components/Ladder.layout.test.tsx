@@ -6,7 +6,7 @@ import { Ladder } from "./Ladder";
 vi.mock("../hooks/useElementWidth", () => ({ useElementWidth: () => mockWidth }));
 let mockWidth = 1200;
 
-function threeLaneCall(endpoints: string[]): Call {
+function callBetween(endpoints: string[]): Call {
   const m = (index: number, src: string, dst: string): SipMessage => ({
     index, timestamp: index, src, dst, transport: "UDP", method: "INVITE", status_code: null,
     status_phrase: null, request_line: null, status_line: null, cseq: "", call_id: "c",
@@ -26,7 +26,7 @@ describe("<Ladder /> layout", () => {
   it("spans rows across the pane when it is wider than the ladder", () => {
     mockWidth = 1200;
     const { container } = render(
-      <Ladder call={threeLaneCall(["a:1", "b:1"])} selectedIndex={null} onSelect={() => {}} aliases={{}} onRename={() => {}} />,
+      <Ladder call={callBetween(["a:1", "b:1"])} selectedIndex={null} onSelect={() => {}} aliases={{}} onRename={() => {}} />,
     );
 
     for (const rect of container.querySelectorAll("rect.row-bg")) {
@@ -37,7 +37,7 @@ describe("<Ladder /> layout", () => {
   it("spreads lanes to fill the pane, clamped to 200..420 px apart", () => {
     mockWidth = 1200;
     const wide = render(
-      <Ladder call={threeLaneCall(["a:1", "b:1", "c:1"])} selectedIndex={null} onSelect={() => {}} aliases={{}} onRename={() => {}} />,
+      <Ladder call={callBetween(["a:1", "b:1", "c:1"])} selectedIndex={null} onSelect={() => {}} aliases={{}} onRename={() => {}} />,
     );
     const [x0, x1, x2] = laneXs(wide.container);
     expect([x1 - x0, x2 - x1]).toEqual([420, 420]);
@@ -45,10 +45,18 @@ describe("<Ladder /> layout", () => {
 
     mockWidth = 600;
     const narrow = render(
-      <Ladder call={threeLaneCall(["a:1", "b:1"])} selectedIndex={null} onSelect={() => {}} aliases={{}} onRename={() => {}} />,
+      <Ladder call={callBetween(["a:1", "b:1"])} selectedIndex={null} onSelect={() => {}} aliases={{}} onRename={() => {}} />,
     );
     const [y0, y1] = laneXs(narrow.container);
     // 600 px pane minus the 110 px time column and 120 px right pad.
     expect(y1 - y0).toBe(370);
+    narrow.unmount();
+
+    mockWidth = 300;
+    const cramped = render(
+      <Ladder call={callBetween(["a:1", "b:1", "c:1"])} selectedIndex={null} onSelect={() => {}} aliases={{}} onRename={() => {}} />,
+    );
+    const [z0, z1] = laneXs(cramped.container);
+    expect(z1 - z0).toBe(200);
   });
 });
