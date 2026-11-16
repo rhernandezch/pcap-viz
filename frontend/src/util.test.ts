@@ -8,6 +8,7 @@ import {
   formatDuration,
   formatOffset,
   formatUtc,
+  messageTiming,
   labelOf,
   plural,
   shortUri,
@@ -212,5 +213,15 @@ describe("formatOffset and formatDelta", () => {
 describe("formatUtc", () => {
   it("formats epoch seconds as a UTC date and time with milliseconds", () => {
     expect(formatUtc(1_700_000_000)).toBe("2023-11-14 22:13:20.000 UTC");
+  });
+});
+
+describe("messageTiming", () => {
+  it("gives every message its offset from call start, and all but the first a delta", () => {
+    const c = { ...call([msg({ index: 0, timestamp: 10.1 }), msg({ index: 1, timestamp: 12.8 })]), started_at: 10 };
+    expect([messageTiming(c, 0), messageTiming(c, 1)]).toEqual([
+      { offset: "+100ms", delta: null },
+      { offset: "+2.80s", delta: "Δ2.70s" },
+    ]);
   });
 });

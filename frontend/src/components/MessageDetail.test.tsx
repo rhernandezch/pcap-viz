@@ -107,11 +107,11 @@ function callOf(messages: SipMessage[], startedAt: number): Call {
 }
 
 function stubClipboard(writeText: (text: string) => Promise<void>) {
-  Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
 }
 
 describe("<MessageDetail /> summary and sections", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
 
   it("summarizes the message with lane names, UTC time, offset and delta", () => {
     const first = msg({ index: 0, timestamp: 1_699_999_997.3 });
@@ -163,6 +163,17 @@ describe("<MessageDetail /> summary and sections", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Copy From" })));
 
     expect(writeText).toHaveBeenCalledWith("<sip:alice@x>");
+  });
+
+  it("doesn't carry copy feedback over to another message's same-named header", async () => {
+    stubClipboard(vi.fn().mockResolvedValue(undefined));
+    const { rerender } = render(<MessageDetail call={null} aliases={{}} message={msg({ headers: { From: "a" } })} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Copy From" })));
+    expect(screen.getByRole("button", { name: "Copy From" })).toHaveTextContent("Copied");
+
+    rerender(<MessageDetail call={null} aliases={{}} message={msg({ index: 1, headers: { From: "b" } })} />);
+
+    expect(screen.getByRole("button", { name: "Copy From" })).toHaveTextContent("Copy");
   });
 
   it("says when copying fails", async () => {

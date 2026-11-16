@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { laneLabel } from "../laneNames";
 import type { Call, Sdp, SdpMedia, SipMessage } from "../types";
-import { arrowClass, formatDelta, formatOffset, formatUtc } from "../util";
+import { arrowClass, formatUtc, messageTiming } from "../util";
 
 interface Props {
   message: SipMessage | null;
@@ -13,7 +13,6 @@ type Section = "headers" | "sdp" | "body";
 
 const CALLOUT_HEADERS = ["reason", "warning"];
 const COPY_FEEDBACK_MS = 1500;
-const RAW_KEY = "raw";
 
 export function MessageDetail({ message, call, aliases }: Props) {
   // Lives above the message so open/closed survives switching messages.
@@ -42,14 +41,18 @@ export function MessageDetail({ message, call, aliases }: Props) {
     ? headers.filter(([k, v]) => k.toLowerCase().includes(q) || v.toLowerCase().includes(q))
     : headers;
   const callouts = headers.filter(([k]) => CALLOUT_HEADERS.includes(k.toLowerCase()));
-  const hasMedia = (message.sdp?.media.length ?? 0) > 0;
+  const sdp = message.sdp?.media.length ? message.sdp : null;
+  // Copy feedback is keyed per message, so it never shows on another message's header.
+  const rawKey = `${message.index}:raw`;
+  const headerKey = (name: string) => `${message.index}:${name}`;
 
   const nameOf = (ep: string) => (call ? `${laneLabel(aliases, call, ep)} (${ep})` : ep);
   const pos = call ? call.messages.findIndex((m) => m.index === message.index) : -1;
   const times = [formatUtc(message.timestamp)];
   if (call && pos >= 0) {
-    times.push(formatOffset(message.timestamp - call.started_at));
-    if (pos > 0) times.push(formatDelta(message.timestamp - call.messages[pos - 1].timestamp));
+    const { offset, delta } = messageTiming(call, pos);
+    times.push(offset);
+    if (delta) times.push(delta);
   }
 
   const section = (key: Section) => ({
@@ -62,11 +65,11 @@ export function MessageDetail({ message, call, aliases }: Props) {
 
   return (
     <div className="detail">
-      <button className="copy" onClick={() => onCopy(RAW_KEY, raw)}>
-        {copyLabel(copy, RAW_KEY, "Copy raw")}
+      <button className="copy" onClick={() => onCopy(rawKey, "message", raw)}>
+        {copyLabel(copy, rawKey, "Copy raw")}
       </button>
       <span className="visually-hidden" role="status">
-        {copy ? (copy.ok ? `Copied ${copy.key === RAW_KEY ? "message" : copy.key}` : "Copy failed") : ""}
+        {copy ? (copy.ok ? `Copied ${copy.what}` : "Copy failed") : ""}
       </span>
       <div className={`first-line ${arrowClass(message)}`}>
         {message.request_line ?? message.status_line}
@@ -94,23 +97,28 @@ export function MessageDetail({ message, call, aliases }: Props) {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
-        <ul className="headers" aria-label="Headers">
+        {/* Explicit roles: list-style: none and display: contents can drop list semantics. */}
+        <ul className="headers" role="list" aria-label="Headers">
           {shownHeaders.map(([k, v]) => (
-            <li key={k}>
+            <li key={k} role="listitem">
               <span className="header-name">{k}</span>
               <span className="header-value">{v}</span>
-              <button className="header-copy" aria-label={`Copy ${k}`} onClick={() => onCopy(k, v)}>
-                {copyLabel(copy, k, "Copy")}
+              <button
+                className="header-copy"
+                aria-label={`Copy ${k}`}
+                onClick={() => onCopy(headerKey(k), k, v)}
+              >
+                {copyLabel(copy, headerKey(k), "Copy")}
               </button>
             </li>
           ))}
         </ul>
       </details>
 
-      {hasMedia && (
+      {sdp && (
         <details className="section" {...section("sdp")}>
           <summary>SDP</summary>
-          <SdpSummary sdp={message.sdp!} />
+          <SdpSummary sdp={sdp} />
         </details>
       )}
 
@@ -126,6 +134,7 @@ export function MessageDetail({ message, call, aliases }: Props) {
 
 interface CopyResult {
   key: string;
+  what: string;
   ok: boolean;
 }
 
@@ -134,19 +143,22 @@ function copyLabel(copy: CopyResult | null, key: string, idle: string): string {
   return copy.ok ? "Copied" : "Copy failed";
 }
 
-function useCopyFeedback(): [CopyResult | null, (key: string, text: string) => Promise<void>] {
+function useCopyFeedback(): [
+  CopyResult | null,
+  (key: string, what: string, text: string) => Promise<void>,
+] {
   const [result, setResult] = useState<CopyResult | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const copy = async (key: string, text: string) => {
+  const copy = async (key: string, what: string, text: string) => {
     let ok = true;
     try {
       await navigator.clipboard.writeText(text);
     } catch {
       ok = false;
     }
-    setResult({ key, ok });
+    setResult({ key, what, ok });
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setResult(null), COPY_FEEDBACK_MS);
   };
