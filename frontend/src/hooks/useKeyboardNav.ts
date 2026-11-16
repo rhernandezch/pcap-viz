@@ -8,6 +8,7 @@ interface Options {
   onSelectCall: (callId: string) => void;
   onSelectMessage: (messageIndex: number) => void;
   onToggleHelp: () => void;
+  onFocusFilter: () => void;
   // While a dialog is open, only the help key stays active.
   paused: boolean;
 }
@@ -36,6 +37,11 @@ export function useKeyboardNav(options: Options): void {
         return;
       }
       if (optionsRef.current.paused || calls.length === 0) return;
+      if (e.key === "/") {
+        optionsRef.current.onFocusFilter();
+        e.preventDefault();
+        return;
+      }
 
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         const call = calls.find((c) => c.call_id === selectedCallId);

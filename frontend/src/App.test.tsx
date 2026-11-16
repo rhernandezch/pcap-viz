@@ -151,6 +151,49 @@ describe("<App />", () => {
     expect(screen.getByRole("button", { name: /^Theme: / })).toBeInTheDocument();
   });
 
+  it("filters calls by typing and moves through the filtered calls only", async () => {
+    await renderPreloaded(
+      result("a.pcap", [
+        call("c1", "INVITE sip:bob@example.com SIP/2.0"),
+        call("carol-call", "INVITE sip:carol@example.com SIP/2.0"),
+        call("c3", "INVITE sip:dave@example.com SIP/2.0"),
+      ]),
+    );
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Filter calls" }), {
+      target: { value: "c3" },
+    });
+    expect(screen.getByText("1 of 3 calls")).toBeInTheDocument();
+
+    fireEvent.keyDown(document.body, { key: "ArrowRight" });
+    fireEvent.keyDown(document.body, { key: "ArrowDown" });
+    expect(screen.getByText("INVITE sip:dave@example.com SIP/2.0")).toBeInTheDocument();
+  });
+
+  it("focuses the call filter with /", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+
+    fireEvent.keyDown(document.body, { key: "/" });
+
+    expect(screen.getByRole("searchbox", { name: "Filter calls" })).toHaveFocus();
+  });
+
+  it("keeps each capture's call filter", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Filter calls" }), {
+      target: { value: "bob" },
+    });
+    act(() => {
+      window.dispatchEvent(fileDragEvent("drop", new File(["x"], "b.pcap")));
+    });
+    await screen.findByRole("tab", { name: "b.pcap" });
+    expect(screen.getByRole("searchbox", { name: "Filter calls" })).toHaveValue("");
+
+    fireEvent.click(screen.getByRole("tab", { name: "a.pcap" }));
+
+    expect(screen.getByRole("searchbox", { name: "Filter calls" })).toHaveValue("bob");
+  });
+
   it("ArrowRight moves to the next call", async () => {
     await renderPreloaded(
       result("a.pcap", [
