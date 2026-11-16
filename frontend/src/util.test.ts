@@ -79,6 +79,10 @@ describe("formatDuration", () => {
     expect(formatDuration(125)).toBe("2m05s");
   });
 
+  it("moves to the next unit when rounding reaches it", () => {
+    expect([0.9996, 59.97, 119.6].map(formatDuration)).toEqual(["1.0s", "1m00s", "2m00s"]);
+  });
+
   it("returns em-dash for negative or non-finite input", () => {
     expect(formatDuration(-1)).toBe("—");
     expect(formatDuration(Number.POSITIVE_INFINITY)).toBe("—");
@@ -214,6 +218,11 @@ describe("messageTiming", () => {
       { offset: "+100ms", delta: null },
       { offset: "+2.80s", delta: "Δ2.70s" },
     ]);
+  });
+
+  it("shows a gap that rounds to a full second in seconds", () => {
+    const c = call([msg({ index: 0, timestamp: 0 }), msg({ index: 1, timestamp: 0.9996 })]);
+    expect(messageTiming(c, 1)).toEqual({ offset: "+1.00s", delta: "Δ1.00s" });
   });
 
   it("uses milliseconds below one second and two decimals above", () => {
