@@ -12,6 +12,7 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { WarningsBar } from "./components/WarningsBar";
 import { fetchPreloadSessionId, fetchSession, uploadPcap } from "./api";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
+import { useLaneAliases } from "./laneNames";
 import { useWindowFileDrop } from "./hooks/useWindowFileDrop";
 import { safeStorage } from "./storage";
 import { filterCalls, plural } from "./util";
@@ -39,6 +40,7 @@ export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const filterRef = useRef<HTMLInputElement>(null);
+  const [laneAliases, renameLane] = useLaneAliases();
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: LAYOUT_ID,
     storage: safeStorage,
@@ -243,6 +245,8 @@ export function App() {
               call={activeCall}
               selectedIndex={active.selectedMessageIndex}
               onSelect={(idx) => updateActive({ selectedMessageIndex: idx })}
+              aliases={laneAliases}
+              onRename={renameLane}
             />
           </Panel>
           <Separator className="pane-separator" aria-label="Resize message panel" />

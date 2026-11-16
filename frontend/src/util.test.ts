@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { Call, SipMessage } from "./types";
-import { arrowClass, callStateOf, filterCalls, formatDuration, labelOf, plural, shortUri } from "./util";
+import {
+  arrowClass,
+  callStateOf,
+  filterCalls,
+  formatDelta,
+  formatDuration,
+  formatOffset,
+  labelOf,
+  plural,
+  shortUri,
+} from "./util";
 
 function msg(overrides: Partial<SipMessage>): SipMessage {
   return {
@@ -188,5 +198,12 @@ describe("plural", () => {
     expect(plural(1, "call")).toBe("1 call");
     expect(plural(0, "call")).toBe("0 calls");
     expect(plural(1234, "packet")).toBe("1234 packets");
+  });
+});
+
+describe("formatOffset and formatDelta", () => {
+  it("use milliseconds below one second and two decimals above", () => {
+    expect([0, 0.0999, 1, 125].map(formatOffset)).toEqual(["+0ms", "+100ms", "+1.00s", "+125.00s"]);
+    expect([0, 0.0999, 1, 125].map(formatDelta)).toEqual(["Δ0ms", "Δ100ms", "Δ1.00s", "Δ125.00s"]);
   });
 });

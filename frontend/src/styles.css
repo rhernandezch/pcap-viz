@@ -356,9 +356,55 @@ button:hover {
 
 /* Ladder */
 .ladder-wrap {
-  padding: 16px;
+  padding: 0 16px 16px;
   overflow: auto;
   height: 100%;
+}
+.lane-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 44px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.lane-head {
+  position: absolute;
+  top: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 180px;
+  transform: translateX(-50%);
+}
+.lane-name {
+  max-width: 100%;
+  padding: 0 4px;
+  border: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.lane-name-input {
+  width: 160px;
+  padding: 1px 4px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg-alt);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.lane-ip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
 }
 .ladder-empty {
   display: flex;
@@ -374,11 +420,6 @@ button:hover {
 .ladder .lane-line {
   stroke: var(--border-strong);
   stroke-width: 1;
-}
-.ladder .lane-label {
-  fill: var(--text);
-  font-size: 12px;
-  font-family: var(--mono);
 }
 /* One class-to-color map for ladder arrows and legend swatches. */
 :is(.arrow-line, .legend-swatch).request { --arrow: var(--arrow-request); }
@@ -429,6 +470,20 @@ button:hover {
   font-size: 11.5px;
   font-family: var(--mono);
   pointer-events: none;
+}
+.ladder .time-delta {
+  fill: var(--text-dim);
+  font-size: 10px;
+  font-family: var(--mono);
+  pointer-events: none;
+  opacity: 0.8;
+}
+.ladder .row:focus-visible {
+  outline: none;
+}
+.ladder .row:focus-visible .row-bg {
+  stroke: var(--accent);
+  stroke-width: 2;
 }
 .ladder .time-label {
   fill: var(--text-dim);

@@ -1,21 +1,28 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useElementWidth } from "../hooks/useElementWidth";
+import { laneLabel, normalizeLaneName } from "../laneNames";
 import type { Call, SipMessage } from "../types";
-import { arrowClass, labelOf } from "../util";
+import { arrowClass, formatDelta, formatOffset, labelOf } from "../util";
 
-const LEFT_MARGIN = 90;
-const TOP_MARGIN = 60;
-const LANE_SPACING = 240;
+// Wide enough for the offset and delta lines of the time column.
+const LEFT_MARGIN = 110;
+const RIGHT_PAD = 120;
+const TOP_MARGIN = 28;
+const LANE_SPACING_MIN = 200;
+const LANE_SPACING_MAX = 420;
+const LANE_SPACING_FALLBACK = 240;
 const ROW_HEIGHT = 56;
 // Self-loop rows need extra vertical space for the U-curve (28px drop)
 // plus clearance before the next row's hit area.
 const SELF_LOOP_ROW_HEIGHT = 80;
-const LANE_MIN_WIDTH = 160;
 const BOTTOM_PAD = 24;
 
 interface Props {
   call: Call | null;
   selectedIndex: number | null;
   onSelect: (msgIndex: number) => void;
+  aliases: Record<string, string>;
+  onRename: (endpoint: string, name: string) => void;
 }
 
 interface Row {
@@ -27,14 +34,24 @@ function rowHeightFor(m: SipMessage): number {
   return m.src === m.dst ? SELF_LOOP_ROW_HEIGHT : ROW_HEIGHT;
 }
 
-export function Ladder({ call, selectedIndex, onSelect }: Props) {
+function laneSpacing(paneWidth: number | null, laneCount: number): number {
+  if (paneWidth === null || laneCount < 2) return LANE_SPACING_FALLBACK;
+  const fill = (paneWidth - LEFT_MARGIN - RIGHT_PAD) / (laneCount - 1);
+  return Math.min(LANE_SPACING_MAX, Math.max(LANE_SPACING_MIN, fill));
+}
+
+export function Ladder({ call, selectedIndex, onSelect, aliases, onRename }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const rowRefs = useRef(new Map<number, SVGGElement>());
+  const paneWidth = useElementWidth(wrapRef);
 
   const layout = useMemo(() => {
     if (!call) return null;
+    const spacing = laneSpacing(paneWidth, call.endpoints.length);
     const laneX: Record<string, number> = {};
     call.endpoints.forEach((ep, i) => {
-      laneX[ep] = LEFT_MARGIN + i * LANE_SPACING;
+      laneX[ep] = LEFT_MARGIN + i * spacing;
     });
 
     const rows: Row[] = [];
@@ -45,15 +62,14 @@ export function Ladder({ call, selectedIndex, onSelect }: Props) {
       cursor += h;
     }
 
-    const width = Math.max(
-      LEFT_MARGIN + (call.endpoints.length - 1) * LANE_SPACING + LANE_MIN_WIDTH,
-      LEFT_MARGIN + LANE_SPACING,
-    );
+    const contentWidth = LEFT_MARGIN + Math.max(1, call.endpoints.length - 1) * spacing + RIGHT_PAD;
+    const width = Math.max(contentWidth, paneWidth ?? 0);
     const height = cursor + BOTTOM_PAD;
     return { laneX, width, height, rows };
-  }, [call]);
+  }, [call, paneWidth]);
 
-  // Keep the selected row visible when it moves via keyboard.
+  // Keep the selected row visible when it moves via keyboard, and keep focus
+  // on it while a row has focus.
   useEffect(() => {
     const wrap = wrapRef.current;
     if (!wrap || !call || !layout || selectedIndex === null) return;
@@ -67,6 +83,9 @@ export function Ladder({ call, selectedIndex, onSelect }: Props) {
     } else if (row.y + row.height * 2 > visibleBottom) {
       wrap.scrollTop = row.y + row.height * 2 - wrap.clientHeight;
     }
+    if (svgRef.current?.contains(document.activeElement)) {
+      rowRefs.current.get(selectedIndex)?.focus();
+    }
   }, [call, layout, selectedIndex]);
 
   if (!call) {
@@ -75,56 +94,130 @@ export function Ladder({ call, selectedIndex, onSelect }: Props) {
 
   const { laneX, width, height, rows } = layout!;
   const t0 = call.started_at;
+  const tabStop = call.messages.some((m) => m.index === selectedIndex)
+    ? selectedIndex
+    : call.messages[0]?.index;
+  const endpointName = (ep: string) => aliases[ep] ?? ep;
 
   return (
     <div className="ladder-wrap" ref={wrapRef}>
+      <div className="lane-header" style={{ width }}>
+        {call.endpoints.map((ep) => (
+          <LaneHead
+            key={ep}
+            endpoint={ep}
+            name={laneLabel(aliases, call, ep)}
+            x={laneX[ep]}
+            onRename={onRename}
+          />
+        ))}
+      </div>
       <div className="ladder">
-        <svg width={width} height={height} role="img" aria-label="SIP ladder">
-          {/* Lane lines + endpoint headers */}
+        <svg ref={svgRef} width={width} height={height} role="group" aria-label="SIP ladder">
           {call.endpoints.map((ep) => (
-            <g key={ep}>
-              <line
-                className="lane-line"
-                x1={laneX[ep]}
-                x2={laneX[ep]}
-                y1={TOP_MARGIN - 18}
-                y2={height - 8}
-              />
-              <text
-                className="lane-label"
-                x={laneX[ep]}
-                y={TOP_MARGIN - 26}
-                textAnchor="middle"
-              >
-                {ep}
-              </text>
-            </g>
+            <line
+              key={ep}
+              className="lane-line"
+              x1={laneX[ep]}
+              x2={laneX[ep]}
+              y1={TOP_MARGIN - 18}
+              y2={height - 8}
+            />
           ))}
 
-          {/* Arrow rows */}
           {call.messages.map((m, i) => {
             const row = rows[i];
             const x1 = laneX[m.src];
             const x2 = laneX[m.dst];
             if (x1 === undefined || x2 === undefined) return null;
-            const isSelected = selectedIndex === m.index;
+            const offset = formatOffset(m.timestamp - t0);
             return (
               <Arrow
                 key={m.index}
+                rowRef={(el) => {
+                  if (el) rowRefs.current.set(m.index, el);
+                  else rowRefs.current.delete(m.index);
+                }}
                 message={m}
                 x1={x1}
                 x2={x2}
                 y={row.y}
                 rowHeight={row.height}
                 width={width}
-                t0={t0}
-                selected={isSelected}
-                onClick={() => onSelect(m.index)}
+                offset={offset}
+                delta={i > 0 ? formatDelta(m.timestamp - call.messages[i - 1].timestamp) : null}
+                label={`${labelOf(m)}, ${endpointName(m.src)} to ${endpointName(m.dst)}, ${offset}`}
+                selected={selectedIndex === m.index}
+                tabbable={tabStop === m.index}
+                onSelect={() => onSelect(m.index)}
               />
             );
           })}
         </svg>
       </div>
+    </div>
+  );
+}
+
+interface LaneHeadProps {
+  endpoint: string;
+  name: string;
+  x: number;
+  onRename: (endpoint: string, name: string) => void;
+}
+
+function LaneHead({ endpoint, name, x, onRename }: LaneHeadProps) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  // Removing the input can still fire blur after Enter or Escape finished the edit.
+  const finished = useRef(false);
+  const refocus = useRef(false);
+
+  useEffect(() => {
+    if (draft !== null || !refocus.current) return;
+    refocus.current = false;
+    buttonRef.current?.focus();
+  }, [draft]);
+
+  const finish = (commit: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    const changed = draft !== null && normalizeLaneName(draft) !== normalizeLaneName(name);
+    if (commit && changed) onRename(endpoint, draft);
+    setDraft(null);
+  };
+
+  return (
+    <div className="lane-head" style={{ left: x }} title={`${name} (${endpoint})`}>
+      {draft === null ? (
+        <button
+          ref={buttonRef}
+          type="button"
+          className="lane-name"
+          aria-label={`Rename lane ${name} (${endpoint})`}
+          onClick={() => {
+            finished.current = false;
+            setDraft(name);
+          }}
+        >
+          {name}
+        </button>
+      ) : (
+        <input
+          className="lane-name-input"
+          aria-label={`Lane name for ${endpoint}`}
+          value={draft}
+          autoFocus
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => finish(true)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== "Escape") return;
+            refocus.current = true;
+            finish(e.key === "Enter");
+          }}
+        />
+      )}
+      <span className="lane-ip">{endpoint}</span>
     </div>
   );
 }
@@ -136,12 +229,30 @@ interface ArrowProps {
   y: number;
   rowHeight: number;
   width: number;
-  t0: number;
+  offset: string;
+  delta: string | null;
+  label: string;
   selected: boolean;
-  onClick: () => void;
+  tabbable: boolean;
+  onSelect: () => void;
+  rowRef: (el: SVGGElement | null) => void;
 }
 
-function Arrow({ message, x1, x2, y, rowHeight, width, t0, selected, onClick }: ArrowProps) {
+function Arrow({
+  message,
+  x1,
+  x2,
+  y,
+  rowHeight,
+  width,
+  offset,
+  delta,
+  label,
+  selected,
+  tabbable,
+  onSelect,
+  rowRef,
+}: ArrowProps) {
   const rightward = x2 > x1;
   const arrowY = y + 22;
   const labelY = y + 12;
@@ -157,19 +268,33 @@ function Arrow({ message, x1, x2, y, rowHeight, width, t0, selected, onClick }: 
   const tipY = isSelfLoop ? arrowY + loopDrop : arrowY;
   const tipDir = isSelfLoop ? -1 : rightward ? 1 : -1;
 
-  const elapsed = message.timestamp - t0;
-  const timeText =
-    elapsed < 1
-      ? `+${Math.round(elapsed * 1000)}ms`
-      : `+${elapsed.toFixed(2)}s`;
+  const onKeyDown = (e: KeyboardEvent<SVGGElement>) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    onSelect();
+  };
 
   return (
-    <g className={`row${selected ? " selected" : ""}`} onClick={onClick}>
+    <g
+      ref={rowRef}
+      className={`row${selected ? " selected" : ""}`}
+      role="button"
+      aria-pressed={selected}
+      aria-label={label}
+      tabIndex={tabbable ? 0 : -1}
+      onClick={onSelect}
+      onKeyDown={onKeyDown}
+    >
       <rect className="row-bg" x={0} y={y} width={width} height={rowHeight} />
       <rect className="hit" x={0} y={y} width={width} height={rowHeight} />
       <text className="time-label" x={LEFT_MARGIN - 12} y={arrowY + 4} textAnchor="end">
-        {timeText}
+        {offset}
       </text>
+      {delta && (
+        <text className="time-delta" x={LEFT_MARGIN - 12} y={arrowY + 17} textAnchor="end">
+          {delta}
+        </text>
+      )}
       <g className="arrow-group">
         <path className={`arrow-line ${arrowClass(message)}`} d={pathD} />
         <polygon
