@@ -1,30 +1,18 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Call, Sdp, SipMessage } from "../types";
+import { sipCall, sipMessage } from "../test-fixtures";
+import type { Sdp, SipMessage } from "../types";
 import { MessageDetail } from "./MessageDetail";
 
-function msg(overrides: Partial<SipMessage> = {}): SipMessage {
-  return {
-    index: 0,
-    timestamp: 0,
-    src: "10.0.0.1:5060",
-    dst: "10.0.0.2:5060",
-    transport: "UDP",
+const msg = (overrides: Partial<SipMessage> = {}) =>
+  sipMessage({
     method: "INVITE",
-    status_code: null,
-    status_phrase: null,
     request_line: "INVITE sip:bob@example.com SIP/2.0",
-    status_line: null,
     cseq: "1 INVITE",
-    call_id: "c1",
-    from_uri: "",
-    to_uri: "",
     headers: { "Content-Type": "application/sdp" },
     body: "v=0\r\n...",
-    sdp: null,
     ...overrides,
-  };
-}
+  });
 
 describe("<MessageDetail />", () => {
   it("renders nothing when no message is selected", () => {
@@ -99,12 +87,8 @@ describe("<MessageDetail />", () => {
 const A = "10.0.0.1:5060";
 const B = "10.0.0.2:5060";
 
-function callOf(messages: SipMessage[], startedAt: number): Call {
-  return {
-    call_id: "c1", endpoints: [A, B], started_at: startedAt, ended_at: messages.at(-1)!.timestamp,
-    from_uri: "", to_uri: "", message_count: messages.length, messages,
-  };
-}
+const callOf = (messages: SipMessage[], startedAt: number) =>
+  sipCall(messages, { endpoints: [A, B], started_at: startedAt });
 
 function stubClipboard(writeText: (text: string) => Promise<void>) {
   vi.stubGlobal("navigator", Object.assign(Object.create(navigator), { clipboard: { writeText } }));

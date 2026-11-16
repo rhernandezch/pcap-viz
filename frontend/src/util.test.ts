@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Call, SipMessage } from "./types";
+import { sipCall as call, sipMessage as msg } from "./test-fixtures";
 import {
   arrowClass,
   callStateOf,
@@ -11,42 +11,6 @@ import {
   plural,
   shortUri,
 } from "./util";
-
-function msg(overrides: Partial<SipMessage>): SipMessage {
-  return {
-    index: 0,
-    timestamp: 0,
-    src: "10.0.0.1:5060",
-    dst: "10.0.0.2:5060",
-    transport: "UDP",
-    method: null,
-    status_code: null,
-    status_phrase: null,
-    request_line: null,
-    status_line: null,
-    cseq: "",
-    call_id: "",
-    from_uri: "",
-    to_uri: "",
-    headers: {},
-    body: null,
-    sdp: null,
-    ...overrides,
-  };
-}
-
-function call(messages: SipMessage[]): Call {
-  return {
-    call_id: "c1",
-    endpoints: ["10.0.0.1:5060", "10.0.0.2:5060"],
-    started_at: 0,
-    ended_at: 0,
-    from_uri: "",
-    to_uri: "",
-    message_count: messages.length,
-    messages,
-  };
-}
 
 describe("shortUri", () => {
   it("extracts sip URI from Name-Addr form", () => {
@@ -77,6 +41,10 @@ describe("formatDuration", () => {
 
   it("renders multi-minute as m..s with zero-padded seconds", () => {
     expect(formatDuration(125)).toBe("2m05s");
+  });
+
+  it("moves to the next unit when rounding reaches it", () => {
+    expect([0.9996, 59.97, 119.6].map(formatDuration)).toEqual(["1.0s", "1m00s", "2m00s"]);
   });
 
   it("returns em-dash for negative or non-finite input", () => {
@@ -214,6 +182,11 @@ describe("messageTiming", () => {
       { offset: "+100ms", delta: null },
       { offset: "+2.80s", delta: "Δ2.70s" },
     ]);
+  });
+
+  it("shows a gap that rounds to a full second in seconds", () => {
+    const c = call([msg({ index: 0, timestamp: 0 }), msg({ index: 1, timestamp: 0.9996 })]);
+    expect(messageTiming(c, 1)).toEqual({ offset: "+1.00s", delta: "Δ1.00s" });
   });
 
   it("uses milliseconds below one second and two decimals above", () => {

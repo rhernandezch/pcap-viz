@@ -2,53 +2,25 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import type { Call, ParseResult, SipMessage } from "./types";
-
-function msg(overrides: Partial<SipMessage> & { index: number }): SipMessage {
-  return {
-    timestamp: 0,
-    src: "10.0.0.1:5060",
-    dst: "10.0.0.2:5060",
-    transport: "UDP",
-    method: null,
-    status_code: null,
-    status_phrase: null,
-    request_line: null,
-    status_line: null,
-    cseq: "1 INVITE",
-    call_id: "c1",
-    from_uri: "",
-    to_uri: "",
-    headers: {},
-    body: null,
-    sdp: null,
-    ...overrides,
-  };
-}
+import { sipCall, sipMessage } from "./test-fixtures";
+import type { Call, ParseResult } from "./types";
 
 function call(callId: string, requestLine: string): Call {
-  return {
-    call_id: callId,
-    endpoints: ["10.0.0.1:5060", "10.0.0.2:5060"],
-    started_at: 0,
-    ended_at: 0.1,
-    from_uri: "<sip:alice@example.com>",
-    to_uri: "<sip:bob@example.com>",
-    message_count: 2,
-    messages: [
-      msg({ index: 0, call_id: callId, method: "INVITE", request_line: requestLine }),
-      msg({
-        index: 1,
-        call_id: callId,
-        timestamp: 0.1,
-        status_code: 200,
-        status_phrase: "OK",
-        status_line: "SIP/2.0 200 OK",
-        src: "10.0.0.2:5060",
-        dst: "10.0.0.1:5060",
-      }),
-    ],
-  };
+  const messages = [
+    sipMessage({ call_id: callId, cseq: "1 INVITE", method: "INVITE", request_line: requestLine }),
+    sipMessage({
+      index: 1,
+      call_id: callId,
+      cseq: "1 INVITE",
+      timestamp: 0.1,
+      status_code: 200,
+      status_phrase: "OK",
+      status_line: "SIP/2.0 200 OK",
+      src: "10.0.0.2:5060",
+      dst: "10.0.0.1:5060",
+    }),
+  ];
+  return sipCall(messages, { from_uri: "<sip:alice@example.com>", to_uri: "<sip:bob@example.com>" });
 }
 
 function result(filename: string, calls: Call[]): ParseResult {

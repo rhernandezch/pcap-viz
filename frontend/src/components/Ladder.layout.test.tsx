@@ -1,21 +1,16 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Call, SipMessage } from "../types";
+import { sipCall, sipMessage } from "../test-fixtures";
+import type { Call } from "../types";
 import { Ladder } from "./Ladder";
 
 vi.mock("../hooks/useElementWidth", () => ({ useElementWidth: () => mockWidth }));
 let mockWidth = 1200;
 
 function callBetween(endpoints: string[]): Call {
-  const m = (index: number, src: string, dst: string): SipMessage => ({
-    index, timestamp: index, src, dst, transport: "UDP", method: "INVITE", status_code: null,
-    status_phrase: null, request_line: null, status_line: null, cseq: "", call_id: "c",
-    from_uri: "", to_uri: "", headers: {}, body: null, sdp: null,
-  });
-  return {
-    call_id: "c", endpoints, started_at: 0, ended_at: 1, from_uri: "", to_uri: "",
-    message_count: 2, messages: [m(0, endpoints[0], endpoints[1]), m(1, endpoints[1], endpoints[0])],
-  };
+  const m = (index: number, src: string, dst: string) =>
+    sipMessage({ index, timestamp: index, src, dst, method: "INVITE" });
+  return sipCall([m(0, endpoints[0], endpoints[1]), m(1, endpoints[1], endpoints[0])], { endpoints });
 }
 
 function laneXs(container: HTMLElement): number[] {
