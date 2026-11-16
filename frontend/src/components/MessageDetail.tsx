@@ -42,7 +42,7 @@ export function MessageDetail({ message, call, aliases }: Props) {
     : headers;
   const callouts = headers.filter(([k]) => CALLOUT_HEADERS.includes(k.toLowerCase()));
   const sdp = message.sdp?.media.length ? message.sdp : null;
-  // Copy feedback is keyed per message, so it never shows on another message's header.
+  // Copy feedback is keyed per message, so it doesn't follow you to another message's header.
   const rawKey = `${message.index}:raw`;
   const headerKey = (name: string) => `${message.index}:${name}`;
 

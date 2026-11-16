@@ -107,7 +107,7 @@ function callOf(messages: SipMessage[], startedAt: number): Call {
 }
 
 function stubClipboard(writeText: (text: string) => Promise<void>) {
-  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+  vi.stubGlobal("navigator", Object.assign(Object.create(navigator), { clipboard: { writeText } }));
 }
 
 describe("<MessageDetail /> summary and sections", () => {
@@ -173,7 +173,7 @@ describe("<MessageDetail /> summary and sections", () => {
 
     rerender(<MessageDetail call={null} aliases={{}} message={msg({ index: 1, headers: { From: "b" } })} />);
 
-    expect(screen.getByRole("button", { name: "Copy From" })).toHaveTextContent("Copy");
+    expect(screen.getByRole("button", { name: "Copy From" })).toHaveTextContent(/^Copy$/);
   });
 
   it("says when copying fails", async () => {

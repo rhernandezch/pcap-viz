@@ -115,8 +115,8 @@ function formatSpan(seconds: number): string {
   return seconds < 1 ? `${Math.round(seconds * 1000)}ms` : `${seconds.toFixed(2)}s`;
 }
 
-export const formatOffset = (seconds: number) => `+${formatSpan(seconds)}`;
-export const formatDelta = (seconds: number) => `Δ${formatSpan(seconds)}`;
+const formatOffset = (seconds: number) => `+${formatSpan(seconds)}`;
+const formatDelta = (seconds: number) => `Δ${formatSpan(seconds)}`;
 
 export function formatUtc(epochSeconds: number): string {
   return new Date(epochSeconds * 1000).toISOString().replace("T", " ").replace("Z", " UTC");

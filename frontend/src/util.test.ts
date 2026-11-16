@@ -4,9 +4,7 @@ import {
   arrowClass,
   callStateOf,
   filterCalls,
-  formatDelta,
   formatDuration,
-  formatOffset,
   formatUtc,
   messageTiming,
   labelOf,
@@ -203,10 +201,16 @@ describe("plural", () => {
   });
 });
 
-describe("formatOffset and formatDelta", () => {
+describe("messageTiming formats", () => {
   it("use milliseconds below one second and two decimals above", () => {
-    expect([0, 0.0999, 1, 125].map(formatOffset)).toEqual(["+0ms", "+100ms", "+1.00s", "+125.00s"]);
-    expect([0, 0.0999, 1, 125].map(formatDelta)).toEqual(["Δ0ms", "Δ100ms", "Δ1.00s", "Δ125.00s"]);
+    const times = [0, 0.0999, 1, 125];
+    const c = { ...call(times.map((t, index) => msg({ index, timestamp: t }))), started_at: 0 };
+    expect(times.map((_, i) => messageTiming(c, i))).toEqual([
+      { offset: "+0ms", delta: null },
+      { offset: "+100ms", delta: "Δ100ms" },
+      { offset: "+1.00s", delta: "Δ900ms" },
+      { offset: "+125.00s", delta: "Δ124.00s" },
+    ]);
   });
 });
 
