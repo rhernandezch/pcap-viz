@@ -1,61 +1,17 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Call, SipMessage } from "../types";
+import { sipCall, sipMessage as msg } from "../test-fixtures";
+import type { Call } from "../types";
 import { Ladder } from "./Ladder";
-
-function msg(overrides: Partial<SipMessage> & { index: number }): SipMessage {
-  return {
-    timestamp: 0,
-    src: "10.0.0.1:5060",
-    dst: "10.0.0.2:5060",
-    transport: "UDP",
-    method: null,
-    status_code: null,
-    status_phrase: null,
-    request_line: null,
-    status_line: null,
-    cseq: "",
-    call_id: "c1",
-    from_uri: "",
-    to_uri: "",
-    headers: {},
-    body: null,
-    sdp: null,
-    ...overrides,
-  };
-}
 
 function sampleCall(): Call {
   const a = "10.0.0.1:5060";
   const b = "10.0.0.2:5060";
-  return {
-    call_id: "c1",
-    endpoints: [a, b],
-    started_at: 0,
-    ended_at: 0.5,
-    from_uri: "",
-    to_uri: "",
-    message_count: 3,
-    messages: [
-      msg({ index: 0, timestamp: 0, method: "INVITE", src: a, dst: b }),
-      msg({
-        index: 1,
-        timestamp: 0.1,
-        status_code: 100,
-        status_phrase: "Trying",
-        src: b,
-        dst: a,
-      }),
-      msg({
-        index: 2,
-        timestamp: 0.5,
-        status_code: 200,
-        status_phrase: "OK",
-        src: b,
-        dst: a,
-      }),
-    ],
-  };
+  return sipCall([
+    msg({ index: 0, timestamp: 0, method: "INVITE", src: a, dst: b }),
+    msg({ index: 1, timestamp: 0.1, status_code: 100, status_phrase: "Trying", src: b, dst: a }),
+    msg({ index: 2, timestamp: 0.5, status_code: 200, status_phrase: "OK", src: b, dst: a }),
+  ]);
 }
 
 describe("<Ladder />", () => {

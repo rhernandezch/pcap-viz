@@ -1,31 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { sipMessage as msg } from "../test-fixtures";
 import type { SipMessage } from "../types";
 import { arrowClass } from "../util";
 import { Legend } from "./Legend";
-
-function msg(overrides: Partial<SipMessage>): SipMessage {
-  return {
-    index: 0,
-    timestamp: 0,
-    src: "a",
-    dst: "b",
-    transport: "UDP",
-    method: null,
-    status_code: null,
-    status_phrase: null,
-    request_line: null,
-    status_line: null,
-    cseq: "",
-    call_id: "",
-    from_uri: "",
-    to_uri: "",
-    headers: {},
-    body: null,
-    sdp: null,
-    ...overrides,
-  };
-}
 
 describe("<Legend />", () => {
   it("shows one swatch per arrow class, styled like the matching arrows", () => {

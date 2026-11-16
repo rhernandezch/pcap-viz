@@ -1,23 +1,11 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Call, SipMessage } from "../types";
+import { sipCall as call, sipMessage } from "../test-fixtures";
+import type { SipMessage } from "../types";
 import { Minimap } from "./Minimap";
 
-function msg(index: number, timestamp: number, overrides: Partial<SipMessage> = {}): SipMessage {
-  return {
-    index, timestamp, src: "a", dst: "b", transport: "UDP", method: "INVITE", status_code: null,
-    status_phrase: null, request_line: null, status_line: null, cseq: "", call_id: "c",
-    from_uri: "", to_uri: "", headers: {}, body: null, sdp: null, ...overrides,
-  };
-}
-
-function call(messages: SipMessage[]): Call {
-  return {
-    call_id: "c", endpoints: ["a", "b"], started_at: messages[0]?.timestamp ?? 0,
-    ended_at: messages.at(-1)?.timestamp ?? 0, from_uri: "", to_uri: "",
-    message_count: messages.length, messages,
-  };
-}
+const msg = (index: number, timestamp: number, overrides: Partial<SipMessage> = {}) =>
+  sipMessage({ index, timestamp, method: "INVITE", ...overrides });
 
 const threeMessages = () =>
   call([msg(0, 100), msg(1, 101, { method: null, status_code: 200 }), msg(2, 110)]);

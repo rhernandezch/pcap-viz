@@ -1,44 +1,23 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Call, SipMessage } from "../types";
+import { sipCall, sipMessage } from "../test-fixtures";
+import type { SipMessage } from "../types";
 import { CallList } from "./CallList";
 
-function msg(overrides: Partial<SipMessage>): SipMessage {
-  return {
-    index: 0,
-    timestamp: 1_700_000_000,
-    src: "a",
-    dst: "b",
-    transport: "UDP",
-    method: null,
-    status_code: null,
-    status_phrase: null,
-    request_line: null,
-    status_line: null,
-    cseq: "1 INVITE",
-    call_id: "busy@x",
-    from_uri: "",
-    to_uri: "",
-    headers: {},
-    body: null,
-    sdp: null,
-    ...overrides,
-  };
-}
+const msg = (overrides: Partial<SipMessage>) =>
+  sipMessage({ timestamp: 1_700_000_000, cseq: "1 INVITE", call_id: "busy@x", ...overrides });
 
-const busy: Call = {
-  call_id: "busy@x",
-  endpoints: ["a", "b"],
-  started_at: 1_700_000_000,
-  ended_at: 1_700_000_000.5,
-  from_uri: '"Alice" <sip:alice@example.com>;tag=1',
-  to_uri: "<sip:bob@example.com>",
-  message_count: 2,
-  messages: [
+const busy = sipCall(
+  [
     msg({ method: "INVITE" }),
     msg({ status_code: 486, status_phrase: "Busy Here", status_line: "SIP/2.0 486 Busy Here" }),
   ],
-};
+  {
+    ended_at: 1_700_000_000.5,
+    from_uri: '"Alice" <sip:alice@example.com>;tag=1',
+    to_uri: "<sip:bob@example.com>",
+  },
+);
 
 function renderList(overrides: Partial<Parameters<typeof CallList>[0]> = {}) {
   const props = {

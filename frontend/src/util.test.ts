@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Call, SipMessage } from "./types";
+import { sipCall as call, sipMessage as msg } from "./test-fixtures";
 import {
   arrowClass,
   callStateOf,
@@ -11,42 +11,6 @@ import {
   plural,
   shortUri,
 } from "./util";
-
-function msg(overrides: Partial<SipMessage>): SipMessage {
-  return {
-    index: 0,
-    timestamp: 0,
-    src: "10.0.0.1:5060",
-    dst: "10.0.0.2:5060",
-    transport: "UDP",
-    method: null,
-    status_code: null,
-    status_phrase: null,
-    request_line: null,
-    status_line: null,
-    cseq: "",
-    call_id: "",
-    from_uri: "",
-    to_uri: "",
-    headers: {},
-    body: null,
-    sdp: null,
-    ...overrides,
-  };
-}
-
-function call(messages: SipMessage[]): Call {
-  return {
-    call_id: "c1",
-    endpoints: ["10.0.0.1:5060", "10.0.0.2:5060"],
-    started_at: 0,
-    ended_at: 0,
-    from_uri: "",
-    to_uri: "",
-    message_count: messages.length,
-    messages,
-  };
-}
 
 describe("shortUri", () => {
   it("extracts sip URI from Name-Addr form", () => {

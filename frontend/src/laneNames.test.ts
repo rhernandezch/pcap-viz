@@ -1,25 +1,16 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Call, SipMessage } from "./types";
+import type { SipMessage } from "./types";
 import { laneLabel, useLaneAliases } from "./laneNames";
+import { sipCall, sipMessage } from "./test-fixtures";
 
 const A = "10.0.0.1:5060";
 const B = "10.0.0.2:5060";
 
-function msg(src: string, headers: Record<string, string>): SipMessage {
-  return {
-    index: 0, timestamp: 0, src, dst: src === A ? B : A, transport: "UDP",
-    method: null, status_code: null, status_phrase: null, request_line: null, status_line: null,
-    cseq: "", call_id: "c", from_uri: "", to_uri: "", headers, body: null, sdp: null,
-  };
-}
+const msg = (src: string, headers: Record<string, string>) =>
+  sipMessage({ src, dst: src === A ? B : A, headers });
 
-function call(messages: SipMessage[]): Call {
-  return {
-    call_id: "c", endpoints: [A, B], started_at: 0, ended_at: 1,
-    from_uri: "", to_uri: "", message_count: messages.length, messages,
-  };
-}
+const call = (messages: SipMessage[]) => sipCall(messages, { endpoints: [A, B] });
 
 describe("laneLabel", () => {
   it("prefers the saved alias", () => {
