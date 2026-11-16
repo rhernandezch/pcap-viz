@@ -320,4 +320,17 @@ describe("<Ladder />", () => {
     const viewport = container.querySelector("svg.minimap rect.viewport")!;
     expect([viewport.getAttribute("y"), viewport.getAttribute("height")]).toEqual(["0", "1000"]);
   });
+
+  it("keeps the minimap span when switching to a call with the same visible rows", () => {
+    const first = sampleCall();
+    const props = { aliases: {}, onRename: () => {}, selectedIndex: null, onSelect: () => {} };
+    const { container, rerender } = render(<Ladder {...props} call={first} />);
+    const wrap = container.querySelector(".ladder-wrap")!;
+    Object.defineProperty(wrap, "clientHeight", { value: 1000 });
+    fireEvent.scroll(wrap);
+
+    rerender(<Ladder {...props} call={{ ...first, call_id: "c2" }} />);
+
+    expect(container.querySelector("svg.minimap rect.viewport")).not.toBeNull();
+  });
 });
