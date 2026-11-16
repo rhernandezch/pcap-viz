@@ -186,6 +186,7 @@ describe("<Ladder />", () => {
   it("saves nothing when a long header-derived name is left unchanged", () => {
     const onRename = vi.fn();
     const c = sampleCall();
+    // Longer than the 40-char alias cap, so the capped draft differs from the shown name.
     c.messages[0].headers = { "User-Agent": "FreeSWITCH-mod_sofia/1.10.9-release~64bit-extra" };
     render(<Ladder aliases={{}} onRename={onRename} call={c} selectedIndex={null} onSelect={() => {}} />);
 
