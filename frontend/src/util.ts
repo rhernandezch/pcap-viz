@@ -117,3 +117,7 @@ function formatSpan(seconds: number): string {
 
 export const formatOffset = (seconds: number) => `+${formatSpan(seconds)}`;
 export const formatDelta = (seconds: number) => `Δ${formatSpan(seconds)}`;
+
+export function formatUtc(epochSeconds: number): string {
+  return new Date(epochSeconds * 1000).toISOString().replace("T", " ").replace("Z", " UTC");
+}
