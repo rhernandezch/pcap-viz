@@ -9,15 +9,19 @@ export function shortUri(uri: string): string {
   return sip.split(";")[0];
 }
 
+const MS_PER_SECOND = 1000;
+const TENTHS_PER_SECOND = 10;
 const SECONDS_PER_MINUTE = 60;
 
 // Each unit is chosen after rounding, so 0.9996 s reads "1.0s", not "1000ms".
 export function formatDuration(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return "—";
-  const ms = Math.round(seconds * 1000);
-  if (ms < 1000) return `${ms}ms`;
-  const tenths = Math.round(seconds * 10);
-  if (tenths < SECONDS_PER_MINUTE * 10) return `${(tenths / 10).toFixed(1)}s`;
+  const ms = Math.round(seconds * MS_PER_SECOND);
+  if (ms < MS_PER_SECOND) return `${ms}ms`;
+  const tenths = Math.round(seconds * TENTHS_PER_SECOND);
+  if (tenths < SECONDS_PER_MINUTE * TENTHS_PER_SECOND) {
+    return `${(tenths / TENTHS_PER_SECOND).toFixed(1)}s`;
+  }
   const total = Math.round(seconds);
   const m = Math.floor(total / SECONDS_PER_MINUTE);
   return `${m}m${(total - m * SECONDS_PER_MINUTE).toString().padStart(2, "0")}s`;
@@ -92,7 +96,7 @@ export function filterCalls(calls: Call[], query: string): Call[] {
 }
 
 export function formatClock(epochSeconds: number): string {
-  return new Date(epochSeconds * 1000).toLocaleTimeString("en-GB", { timeZone: "UTC", hour12: false });
+  return new Date(epochSeconds * MS_PER_SECOND).toLocaleTimeString("en-GB", { timeZone: "UTC", hour12: false });
 }
 
 export function labelOf(m: SipMessage): string {
@@ -117,15 +121,15 @@ export function plural(n: number, word: string): string {
 }
 
 function formatSpan(seconds: number): string {
-  const ms = Math.round(seconds * 1000);
-  return ms < 1000 ? `${ms}ms` : `${seconds.toFixed(2)}s`;
+  const ms = Math.round(seconds * MS_PER_SECOND);
+  return ms < MS_PER_SECOND ? `${ms}ms` : `${seconds.toFixed(2)}s`;
 }
 
 const formatOffset = (seconds: number) => `+${formatSpan(seconds)}`;
 const formatDelta = (seconds: number) => `Δ${formatSpan(seconds)}`;
 
 export function formatUtc(epochSeconds: number): string {
-  return new Date(epochSeconds * 1000).toISOString().replace("T", " ").replace("Z", " UTC");
+  return new Date(epochSeconds * MS_PER_SECOND).toISOString().replace("T", " ").replace("Z", " UTC");
 }
 
 export function messageTiming(call: Call, pos: number): { offset: string; delta: string | null } {
