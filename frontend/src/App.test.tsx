@@ -197,6 +197,25 @@ describe("<App />", () => {
     expect(filter).toHaveFocus();
   });
 
+  it("ignores ArrowRight when the filter matches no calls", async () => {
+    await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Filter calls" }), {
+      target: { value: "zzz" },
+    });
+
+    // Listener exceptions surface as window "error" events, not as throws.
+    const errors: unknown[] = [];
+    const onError = (e: ErrorEvent) => {
+      errors.push(e.error);
+      e.preventDefault();
+    };
+    window.addEventListener("error", onError);
+    fireEvent.keyDown(document.body, { key: "ArrowRight" });
+    window.removeEventListener("error", onError);
+
+    expect(errors).toEqual([]);
+  });
+
   it("focuses the call filter with /", async () => {
     await renderPreloaded(result("a.pcap", [call("c1", "INVITE sip:bob@example.com SIP/2.0")]));
 

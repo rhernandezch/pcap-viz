@@ -161,6 +161,10 @@ button:hover {
 .panel-calls {
   overflow-x: hidden;
 }
+/* Fixed so the sticky call filter can sit exactly below it. */
+.panel-calls .panel-header {
+  height: var(--panel-header-height);
+}
 .panel-detail {
   background: var(--bg-panel);
 }
@@ -177,8 +181,6 @@ button:hover {
 }
 
 .panel-header {
-  height: var(--panel-header-height);
-  box-sizing: border-box;
   position: sticky;
   top: 0;
   background: var(--bg-alt);
